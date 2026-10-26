@@ -1,6 +1,6 @@
 # 08: Threshold Rounds on the Round page
 
-**Source:** [the spec](../../paid-fast-rounds/spec.md). Building is gated: start only after a payer makes a Paid commitment in [Run the outreach](../../run-the-outreach/task.md).
+**Source:** [the spec](../../paid-fast-rounds/spec.md).
 
 **Blocked by:** 04, 07
 

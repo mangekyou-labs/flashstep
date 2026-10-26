@@ -6,7 +6,7 @@ Label: wayfinder:map
 
 A spec naming **one payer, one product and the outreach route to a paid commitment** (a pilot fee, deposit or signed LOI) for automatic, back-to-back 30-second Rounds settled without a person, on events beyond coin prices where they fit. The payer is never a bettor. The map's decisions are converted into that spec; the commitment itself is pursued by the separate task [Run the outreach](../run-the-outreach/task.md), which keeps the kill rule: stop if no payer commits within 4 weeks of the first send.
 
-**Reached 2026-10-26:** [30-second Rounds for Base token teams: a white-label pilot](spec.md) (`ready-for-agent`, build gated on a paid commitment).
+**Reached 2026-10-26:** [30-second Rounds for Base token teams: a white-label pilot](spec.md) (`ready-for-agent`, product only). Its build tickets are in [paid-fast-rounds-build](../paid-fast-rounds-build/issues/); manual QA and the outreach follow the build as HITL tickets 14 and 15.
 
 ## Notes
 

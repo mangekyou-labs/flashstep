@@ -3,7 +3,7 @@
 Label: wayfinder:task
 Type: task
 Status: open
-Blocked by: none (map: [paid-fast-rounds](../paid-fast-rounds/map.md))
+Blocked by: [QA: pilot rehearsal on Base Sepolia](../paid-fast-rounds-build/issues/14-qa-pilot-rehearsal-on-base-sepolia.md) (map: [paid-fast-rounds](../paid-fast-rounds/map.md)). Tracked as build ticket [Run the outreach](../paid-fast-rounds-build/issues/15-run-the-outreach.md).
 Assignee: MrSufferer
 
 Split out of the paid-fast-rounds map on 2026-10-26: this is execution, not a decision, so it runs as its own task. The map hands off the route; this task carries it out.

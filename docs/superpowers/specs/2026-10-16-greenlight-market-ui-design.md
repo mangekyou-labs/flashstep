@@ -11,45 +11,45 @@ Four public routes and two crew tools:
 | Route | Role |
 | --- | --- |
 | `/` | Market board. One card for the deployed market. |
-| `/market` | Question, cent prices, time chart, trade ticket, rules. |
+| `/market` | Question, cent prices, time chart, trade ticket or closed panel, rules. |
 | `/portfolio` | Connected wallet's Yes and No shares, marks, and redeem. |
 | `/live` | The existing car race, and nothing from the contract. |
 | `/oracle` | Report Yes or No. Absent from the main nav. |
-| `/liquidity-provider` | Collateral, revenue, reserves, add and remove liquidity, resolve and withdraw. Absent from the main nav. |
+| `/liquidity-provider` | Collateral, trade cash, reserves, add and remove liquidity, resolve and withdraw. Absent from the main nav. |
 
 `/user` redirects to `/market`.
 
-The header is the wordmark **Greenlight**, then Markets, Portfolio, and Live. Oracle and Liquidity sit in a Crew menu. On the local chain (31337), that menu also shows Debug Contracts and Block Explorer. The wallet sits on the right. The existing faucet stays beside it and only on Anvil. The document title is Greenlight.
+The header is the wordmark **Greenlight**, then Markets, Portfolio, and Live. A light/dark control sits in the header. It follows the system preference until the reader changes it. Oracle and Liquidity sit in a Crew menu. The nav label stays Markets for the one market. On the local chain (31337), that menu also shows Debug Contracts and Block Explorer. The wallet sits on the right. The existing faucet stays beside it and only on Anvil. The document title is Greenlight.
 
 Home no longer shows the Scaffold-ETH challenge intro. Crew pages use the same header and a plainer body, with no race widget and no jokes.
 
 ## Board and market
 
-The board has one card. The title is the onchain question, verbatim. Under it, one joke line: "The crowd calls the race. The cars just run it." Yes and No show as cents of the payout, written `62¢` for a 62% chance. No is `100 − Yes`. The status is Open, Reported, or Resolved. The card links to `/market`.
+The board has one hero card. The title is the onchain question, verbatim. Under it, one joke line: "The crowd calls the race. The cars just run it." Yes and No show as cents of the payout, written `62¢` for a 62% chance. No is `100 − Yes`. The status is Open or Closed. Closed means the oracle has reported. The card links to `/market`.
 
 The market page is two columns. The left column holds the question, the cent prices, and the time chart. The right column is the trade ticket. On a narrow viewport the ticket stacks under the chart.
 
 The page headline is one joke: "Lap money, priced in cents." The question under it stays verbatim.
 
-The chart is YES probability over time. Each point is the Yes chance after a `TokensPurchased` or `TokensSold` event. Before any trade the chart is a flat line at the current chance. Adding or removing liquidity does not move the line. After the oracle reports, the line stops and a banner names the winner. The banner links to `/portfolio`.
+The chart plots the Yes chance against block time, on a fixed scale from 0 to 100. A 62¢ chance sits at 62. The line is green. The axis has no percent sign. Each point is the Yes chance after a buy or a sell. Trades that share a timestamp are a vertical step, drawn in log order. Before any trade the chart is a flat line at the current chance. Adding or removing liquidity does not move the line. After the oracle reports, the line stops. The chart does not name the winner.
 
-The ticket offers Yes or No, buy or sell, and a share size. The size is entered in token units and converted with the token's 18 decimals before it is quoted or sent. The existing bonding-curve drawing shows how that size moves the price. Cost and proceeds come from `getBuyPriceInEth` and `getSellPriceInEth` and display in ETH. The market owner cannot trade. After the report, the ticket closes. Winning shares redeem at `initialTokenValue`. Losing shares pay nothing.
+The ticket offers Yes or No, buy or sell, and a share size. The size is entered in decimal token units and converted with the token's 18 decimals before it is quoted or sent. Displayed share counts round half away from zero to 4 decimal places, then trailing zeros are trimmed, so 1.23456 reads 1.2346 and 1.2000 reads 1.2. Max fills the exact reserve on a buy and the exact wallet balance on a sell. The field and the transaction use that exact count. The rounded readout is not what gets sent. The existing bonding-curve drawing shows how that size moves the price. The ticket shows the ETH paid or received. A buy also shows the max payout in ETH: the share size times `initialTokenValue`. Cents stay off the button. Cents are the chance. ETH is the money. Cost and proceeds come from `getBuyPriceInEth` and `getSellPriceInEth`. The market owner cannot trade. After the report, the ticket is replaced by a closed panel. The panel names the winner only when the winning token is the Yes token or the No token. If that address matches neither, the panel omits the name. It still shows the payout per winning share and the link to `/portfolio`. It does not call the winner No. There is no size field. The winner is named only in that panel. Winning shares redeem at `initialTokenValue`. Losing shares pay nothing.
 
-The rules block states the payout per winning share, the 50 bps trading fee, and that the oracle address reports the result. One joke line sits in that block: "The oracle waves the flag. Until then, this is just a loud opinion."
+The rules block states the payout per winning share, the 50 bps trading fee, and that the oracle address reports the result. The block stays straight.
 
 ## Portfolio, live, and crew
 
 `/portfolio` reads the connected wallet's Yes and No balances.
 
-While the market is open, each row shows the share count and a mark in ETH: shares × current chance × `initialTokenValue`. The mark uses the unrounded sold-share chance. It is a board reading, not a fill. The headline joke is "Your garage."
+While the market is open, each row shows the share count and a mark in ETH: shares × current chance × `initialTokenValue`. The mark uses the unrounded sold-share chance. It is a board reading, not a fill. It shows up to 8 decimal places, trailing zeros trimmed, and may disagree with a later trade. The headline joke is "Your garage."
 
-After the report, winning shares show redeemable ETH (`amount × initialTokenValue`). Losing shares show zero. One control redeems the full winning balance. The market owner can see shares and cannot redeem. A line points the owner to the liquidity page for cash-out.
+After the report, winning shares show redeemable ETH (`amount × initialTokenValue`). Losing shares show zero. One control redeems the full winning balance. The liquidity provider can see the locked shares and cannot sell or redeem them. Those shares are a different pile from the pool. The portfolio does not send them to the liquidity page to cash out.
 
 An empty wallet says "The garage is empty. Buy a car on the market." A disconnected wallet says "Connect a wallet to see your shares." The empty state replaces the headline joke, so the page still has one.
 
 `/live` renders the existing race animation only. Speeds stay random. The page does not read the contract and does not settle the market. Start and reset stay. The headline is "Exhibition lap. The market keeps the real score."
 
-The oracle page shows the question, the cent prices, and Yes/No report controls. The report button is enabled only for the oracle address. The liquidity page shows collateral, trading revenue, reserves, add and remove liquidity, and resolve-and-withdraw. A wallet in the wrong role still sees the page. The button stays disabled, and one line names the address that can send the transaction.
+The oracle page shows the question, the cent prices, and Yes/No report controls. Its cents follow the same chance rules as the board. The report button is enabled only for the oracle address. The liquidity page shows collateral, trade cash, reserves, add and remove liquidity, and resolve-and-withdraw. Trade cash is the ETH taken in on buys and not yet paid out on sells. Buys add to it, sells pay out of it, and the 50 bps fee is what remains. Resolved appears on this page only, and only when a `MarketResolved` log is present. If that log is missing, the page does not say Resolved. A wallet in the wrong role still sees the page. The button stays disabled, and one line names the address that can send the transaction.
 
 ## Look and voice
 
@@ -67,7 +67,7 @@ The chart is an inline SVG. No chart library is added.
 
 ## Data flow
 
-One shared read of `getPrediction()` feeds the board, the market page, the portfolio, and the crew pages. The snapshot is the question, payout, Yes and No reserves, reported flag, winning token, collateral, trading revenue, owner, oracle, initial Yes probability, and the two token addresses. Each outcome token's `totalSupply()` is read beside it. Sold shares are `totalSupply − reserve`. The constructor lock is a transfer to the liquidity provider, so those shares count as sold.
+One shared read of `getPrediction()` feeds the board, the market page, the portfolio, and the crew pages. The snapshot is the question, payout, Yes and No reserves, reported flag, winning token, collateral, trade cash, owner, oracle, initial Yes probability, and the two token addresses. Each outcome token's `totalSupply()` is read beside it. Sold shares are `totalSupply − reserve`. The constructor lock is a transfer to the liquidity provider, so those shares count as sold.
 
 While the market is open:
 
@@ -76,20 +76,24 @@ yesCents = round(yesSold × 100 / (yesSold + noSold))
 noCents = 100 − yesCents
 ```
 
-Half rounds away from zero, so 50.5 becomes 51. If the sold total is zero, Yes cents use `initialYesProbability`. After the oracle reports, cents freeze at the last open chance. Redemptions burn winning shares and must not move the board.
+Half rounds away from zero, so 50.5 becomes 51. If the sold total is zero, Yes cents use `initialYesProbability`.
 
-Status is Open when `isReported` is false. It is Resolved when a `MarketResolved` event is in the history. It is Reported when `isReported` is true and that event has not been seen.
+While the market is open, cents come from the current sold shares. They do not wait on trade history. Until buy and sell logs load, the chart is the flat current chance. If those logs fail, the chart stays that flat line and offers a retry. The cents stay. An open market has no redemption to reconstruct.
 
-The time chart uses `useScaffoldEventHistory` for `TokensPurchased` and `TokensSold`, with block timestamps, from `deployedOnBlock` (local block 4, Sepolia block 11906482). The series walks those events backward from the current sold amounts. A buy is undone by subtracting the amount from that outcome. A sell is undone by adding it. The leftmost point is the opening chance at the deploy block. Events that share a timestamp stay in log order and connect in that order. Liquidity events are ignored. No trades produce one flat point. After the report, `WinningTokensRedeemed` amounts are added back to the winning side before the walk. History is kept and no new points are added. No indexer is introduced. If history fails, the chart shows the flat current chance and a retry. The ticket still quotes from the chain.
+After the oracle reports, cents freeze at the last open chance. Redemptions burn winning shares and must not move the board. Cents and the chart wait until redemption history has loaded. If that history fails, the board, the market page, and the oracle page hide every cent figure and the chart line, and say "Chance unavailable." That line is the retry. The page does not draw the drifted chance. The closed panel stays. It names the winner only when the winning token is Yes or No, and omits the name otherwise.
+
+Public status is Open when the oracle has not reported, and Closed when the oracle has reported. Resolved is not a public status. It appears only on the liquidity page, and only when a `MarketResolved` event is in the history. A missing log leaves every public page Closed. It does not guess Resolved. Trader actions change at the report.
+
+The time chart uses `useScaffoldEventHistory` for `TokensPurchased` and `TokensSold`, with block timestamps, from `deployedOnBlock` (local block 4, Sepolia block 11906482). The series walks those events backward from the current sold amounts. A buy is undone by subtracting the amount from that outcome. A sell is undone by adding it. The leftmost point is the opening chance at the deploy block. Events that share a timestamp stay in log order and connect in that order. Liquidity events are ignored. No trades produce one flat point. After the report, `WinningTokensRedeemed` amounts are added back to the winning side before the walk. History is kept and no new points are added. No indexer is introduced. The ticket still quotes from the chain. An open market whose trade history fails keeps its cents and a flat chart with a retry. A closed market whose redemption history fails hides the cents and the line instead.
 
 Writes:
 
 - Buy calls `buyTokensWithETH(outcome, amount)` with `msg.value` exactly equal to `getBuyPriceInEth`.
-- Sell approves the outcome token, then calls `sellTokensForEth`.
+- Sell reads the allowance. The button says Approve while the allowance is short of the size, and Sell once the allowance covers it. Confirming Approve does not send the sell. The sell calls `sellTokensForEth`.
 - Portfolio calls `redeemWinningTokens` for the full winning balance.
 - Report, add liquidity, remove liquidity, and resolve stay on the crew pages with their current signatures.
 
-The curve inside the ticket may preview the path with the existing client integral quote. The button sends the chain quote's exact wei. The visible ETH label is that same wei amount, trailing zeros trimmed, up to 8 decimal places. Share counts show token units up to 4 decimal places, trailing zeros trimmed.
+The curve inside the ticket may preview the path with the existing client integral quote. The button sends the chain quote's exact wei. A quote, a max payout, redeemable ETH, collateral, and trade cash show that exact wei, trailing zeros trimmed. An amount that is exact within 8 decimal places shows at that length. An amount that would round to a different figure, including 1 wei, shows the full trimmed value. An open-market mark shows up to 8 decimal places, trailing zeros trimmed, and may disagree with a later trade. Displayed share counts round half away from zero to 4 decimal places, then trailing zeros are trimmed. The submitted share count stays exact.
 
 ## Error handling
 
@@ -118,9 +122,9 @@ Copy stays straight:
 | The winning balance is short | Not enough winning shares |
 | An ETH or token transfer failed | Transfer failed |
 
-Sell asks for allowance before `sellTokensForEth`. A rejected approval never sends the sell. A pending transaction disables the button.
+Sell asks for allowance before `sellTokensForEth`. The button names only the next signature. A rejected approval never sends the sell and leaves the button on Approve. A pending transaction disables the button.
 
-While `getPrediction()` is loading, prices and buttons show a quiet loading state. If no market is deployed, public pages say so in one line and hide the ticket. If the curve cannot be drawn, the ETH quote and the button remain. If event history fails, status stays Open or Reported from `getPrediction()` and does not guess Resolved.
+While `getPrediction()` is loading, prices and buttons show a quiet loading state. If no market is deployed, public pages say so in one line and hide the ticket. If the curve cannot be drawn, the ETH quote and the button remain. If event history fails, public status stays Open or Closed from the reported flag and does not guess Resolved.
 
 ## Testing
 
@@ -138,7 +142,8 @@ Browser checks run against Anvil with the current source, through `playwright-cl
 - `/user` lands on `/market`.
 - Oracle and liquidity are out of the main nav and still perform their actions.
 - The owner cannot trade.
-- A reported market closes the ticket, freezes the cents, and names the winner.
+- A reported market replaces the ticket with the closed panel, freezes the cents, and names the winner once when the winning token is Yes or No. An unmatched winning token leaves the name off the panel.
+- A closed market whose redemption history fails hides the cents and the chart and says "Chance unavailable."
 - The market page is checked wide and narrow.
 - With reduced motion, the chart and the race render as a still frame.
 

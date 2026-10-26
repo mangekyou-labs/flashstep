@@ -1,0 +1,263 @@
+<!doctype html>
+<!-- PROTOTYPE, throwaway. Sales demo for "The demo payers see". Mock price feed, no chain, no persistence.
+     Design language borrowed from Kalshi (light, quiet, cents pricing, one green accent); motion per Emil Kowalski.
+     Open by double-click. ?v=player|pitch|dashboard&brand=DEGEN -->
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PROTOTYPE · Rounds</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#fff;--surface:#fff;--subtle:#f6f7f9;--line:#e7e9ee;--text:#0f1419;--mut:#69707d;
+  --yes:#00a86b;--yes-bg:#e6f7f0;--no:#d33f49;--no-bg:#fcebec;
+  --ease-out:cubic-bezier(.23,1,.32,1);--ease-io:cubic-bezier(.77,0,.175,1);
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:14px/1.45 Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+.num{font-variant-numeric:tabular-nums}
+.mut{color:var(--mut)}
+header.top{border-bottom:1px solid var(--line);height:56px;display:flex;align-items:center;gap:24px;padding:0 24px}
+.logo{font-weight:700;font-size:17px;letter-spacing:-.02em;display:flex;align-items:center;gap:8px}
+.logo i{width:22px;height:22px;border-radius:6px;background:var(--text);display:inline-block}
+.nav{display:flex;gap:18px;color:var(--mut);font-weight:500}.nav b{color:var(--text);font-weight:600}
+.wrap{max-width:1080px;margin:0 auto;padding:28px 24px 110px}
+.grid{display:grid;grid-template-columns:1fr 340px;gap:32px;align-items:start}
+@media (max-width:860px){.grid{grid-template-columns:1fr}}
+
+/* market header */
+.crumb{font-size:12px;font-weight:600;color:var(--mut);text-transform:uppercase;letter-spacing:.04em}
+.mhead{display:flex;gap:14px;align-items:center;margin:10px 0 18px}
+.token{width:48px;height:48px;border-radius:12px;background:linear-gradient(135deg,#7c5cff,#3b82f6);color:#fff;display:grid;place-items:center;font-weight:700}
+h1{font-size:24px;line-height:1.2;letter-spacing:-.02em;margin:0;font-weight:700}
+.chance{display:flex;align-items:baseline;gap:10px;margin-bottom:4px}
+.chance .big{font-size:32px;font-weight:700;letter-spacing:-.02em;color:var(--yes)}
+.delta{font-size:13px;font-weight:600}
+canvas{width:100%;height:220px;display:block}
+
+/* round strip */
+.phase{display:flex;align-items:center;gap:12px;margin:18px 0 6px;font-weight:600}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--yes);box-shadow:0 0 0 4px var(--yes-bg)}
+.phase.window .dot{background:#f59e0b;box-shadow:0 0 0 4px #fef3c7}
+.track{height:4px;background:var(--subtle);border-radius:2px;overflow:hidden}
+.track span{display:block;height:100%;background:var(--text);transform-origin:left;transition:transform 1s linear}
+.rules{display:grid;grid-template-columns:repeat(3,1fr);border:1px solid var(--line);border-radius:12px;margin-top:22px}
+.rules div{padding:14px 16px}.rules div+div{border-left:1px solid var(--line)}
+.rules b{display:block;font-size:15px;margin-top:2px}
+
+/* history table */
+table{width:100%;border-collapse:collapse;margin-top:22px}
+th{font-size:12px;font-weight:500;color:var(--mut);text-align:left;padding:8px 0;border-bottom:1px solid var(--line)}
+td{padding:11px 0;border-bottom:1px solid var(--line)}
+td:last-child,th:last-child{text-align:right}
+tr.enter td{opacity:0;transform:translateY(-4px)}
+td{transition:opacity 240ms var(--ease-out),transform 240ms var(--ease-out)}
+.pill{font-size:12px;font-weight:600;padding:2px 8px;border-radius:999px}
+.pill.y{background:var(--yes-bg);color:var(--yes)}.pill.n{background:var(--no-bg);color:var(--no)}.pill.t{background:var(--subtle);color:var(--mut)}
+
+/* trade panel */
+.panel{border:1px solid var(--line);border-radius:16px;padding:18px;position:sticky;top:20px;box-shadow:0 1px 2px rgba(16,24,40,.04)}
+.tabs{display:flex;gap:18px;border-bottom:1px solid var(--line);margin:-4px 0 16px}
+.tabs span{padding:0 0 10px;font-weight:600;color:var(--mut)}.tabs span.on{color:var(--text);box-shadow:inset 0 -2px var(--text)}
+.sides{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.side{border:1px solid var(--line);background:var(--surface);border-radius:10px;height:48px;font:600 15px Inter,sans-serif;cursor:pointer;color:var(--text);
+  transition:transform 160ms var(--ease-out),background-color 160ms ease,border-color 160ms ease,color 160ms ease}
+.side:active{transform:scale(.97)}
+.side.yes.on{background:var(--yes-bg);border-color:var(--yes);color:var(--yes)}
+.side.no.on{background:var(--no-bg);border-color:var(--no);color:var(--no)}
+.side:disabled{opacity:.45;cursor:default;transform:none}
+label.f{display:flex;justify-content:space-between;align-items:center;margin-top:16px;font-weight:500}
+.amt{display:flex;align-items:center;border:1px solid var(--line);border-radius:10px;padding:0 12px;height:44px;width:150px;transition:border-color 160ms ease}
+.amt:focus-within{border-color:var(--text)}
+.amt input{border:0;outline:0;font:600 16px Inter,sans-serif;width:100%;text-align:right}
+.chips{display:flex;gap:6px;justify-content:flex-end;margin-top:8px}
+.chip{border:1px solid var(--line);background:#fff;border-radius:999px;padding:3px 10px;font:500 12px Inter,sans-serif;cursor:pointer;transition:transform 160ms var(--ease-out)}
+.chip:active{transform:scale(.95)}
+.sum{margin:16px 0;border-top:1px solid var(--line);padding-top:14px;display:grid;gap:8px}
+.sum div{display:flex;justify-content:space-between}
+.sum .win{font-size:18px;font-weight:700;color:var(--yes)}
+.cta{width:100%;height:50px;border:0;border-radius:12px;background:var(--yes);color:#fff;font:600 15px Inter,sans-serif;cursor:pointer;
+  transition:transform 160ms var(--ease-out),background-color 160ms ease,opacity 160ms ease}
+.cta:active{transform:scale(.97)}.cta:disabled{opacity:.4;cursor:default;transform:none}
+.cta.no{background:var(--no)}
+.cta .lbl{display:inline-block;transition:filter 200ms ease,opacity 200ms ease}.cta.busy .lbl{filter:blur(2px);opacity:.6}
+.fine{font-size:12px;color:var(--mut);margin-top:10px;text-align:center}
+.flash-up{color:var(--yes)}.flash-dn{color:var(--no)}
+.pos{margin-top:14px;padding:12px;border-radius:10px;background:var(--subtle);font-weight:500;
+  transition:opacity 200ms var(--ease-out),transform 200ms var(--ease-out)}
+.pos.hide{opacity:0;transform:translateY(4px)}
+
+/* toast */
+.toast{position:fixed;left:50%;bottom:80px;transform:translate(-50%,0);background:var(--text);color:#fff;padding:12px 16px;border-radius:12px;font-weight:500;
+  transition:transform 300ms var(--ease-out),opacity 300ms var(--ease-out);box-shadow:0 8px 30px rgba(0,0,0,.18)}
+.toast.hide{transform:translate(-50%,12px);opacity:0;pointer-events:none}
+
+/* pitch + dashboard */
+.hero{max-width:680px;margin:20px 0 36px}
+.hero h1{font-size:44px;line-height:1.05;letter-spacing:-.035em}
+.hero p{font-size:17px;color:var(--mut);margin:16px 0 22px}
+.offer{display:grid;grid-template-columns:repeat(3,1fr);gap:0;border:1px solid var(--line);border-radius:14px;margin-bottom:40px}
+.offer div{padding:18px}.offer div+div{border-left:1px solid var(--line)}
+.offer b{display:block;font-size:22px;letter-spacing:-.02em;margin-top:4px}
+.ghost{display:inline-flex;align-items:center;height:46px;padding:0 20px;border-radius:12px;background:var(--text);color:#fff;font-weight:600;border:0;cursor:pointer;font-family:Inter;font-size:15px;
+  transition:transform 160ms var(--ease-out)}.ghost:active{transform:scale(.97)}
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);border:1px solid var(--line);border-radius:14px;margin:18px 0 28px}
+.kpis div{padding:16px 18px}.kpis div+div{border-left:1px solid var(--line)}
+.kpis b{display:block;font-size:26px;letter-spacing:-.02em;margin-top:2px}
+.settings{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:10px}
+.settings label{display:grid;gap:6px;font-weight:500;font-size:13px}
+.settings input,.settings select{height:40px;border:1px solid var(--line);border-radius:10px;padding:0 10px;font:500 14px Inter;background:#fff}
+h2{font-size:16px;margin:0}
+
+/* variant switcher */
+#bar{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);display:flex;gap:2px;padding:4px;background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:0 8px 30px rgba(16,24,40,.08)}
+#bar button{border:0;background:none;padding:8px 14px;border-radius:8px;font:500 13px Inter;color:var(--mut);cursor:pointer;transition:background-color 160ms ease,color 160ms ease,transform 160ms var(--ease-out)}
+#bar button:active{transform:scale(.97)}#bar button.on{background:var(--subtle);color:var(--text)}
+@media (hover:hover) and (pointer:fine){.side:not(:disabled):hover{border-color:#c9cdd4}.chip:hover{border-color:#c9cdd4}#bar button:hover{color:var(--text)}}
+@media (prefers-reduced-motion:reduce){*{transition-property:opacity,color,background-color,border-color!important}.track span{transition:none}}
+</style></head><body>
+<header class="top"><div class="logo"><i></i><span id="brandName"></span> Rounds</div>
+  <nav class="nav"><b>Markets</b><span>Portfolio</span><span>Leaderboard</span></nav>
+  <span class="mut" style="margin-left:auto;font-size:12px">PROTOTYPE · mock feed</span></header>
+<main class="wrap" id="app"></main>
+<div class="toast hide" id="toast"></div>
+<div id="bar"></div>
+<script>
+const q=new URLSearchParams(location.search);
+const BRAND=(q.get('brand')||'DEGEN').toUpperCase();
+let V=q.get('v')||'player';
+const cfg={trade:15,window:15,cap:20,seed:500,opening:50,type:'updown'};
+const $=id=>document.getElementById(id);
+const fmt=n=>'$'+n.toFixed(2), cents=p=>Math.round(p*100)+'¢';
+$('brandName').textContent='$'+BRAND;
+
+/* ---- mock pool feed ---- */
+let price=0.012345,hist=[];
+setInterval(()=>{price*=1+(Math.random()-.5)*.004;hist.push(price);if(hist.length>240)hist.shift();drawChart()},250);
+
+/* ---- round engine (simplified: shares bought at current probability, winning share pays $1) ---- */
+let round,stats={rounds:0,volume:0,players:new Set(),lpPnl:0,log:[]},me={bal:100,pos:null},pick='up',amount=10,lastProb=.5;
+function newRound(){
+  const type=cfg.type==='mix'?(Math.random()<.5?'updown':'threshold'):cfg.type;
+  round={n:++stats.rounds,type,phase:'trading',t:cfg.trade,len:cfg.trade,up:cfg.seed*.1,down:cfg.seed*.1,
+    potY:cfg.opening,potN:cfg.opening,threshold:+(price*1.001).toPrecision(4),start:null,end:null,stakes:[]};
+}
+const probUp=()=>round.type==='updown'?round.up/(round.up+round.down):round.potY/(round.potY+round.potN);
+function stake(side,amt,who){
+  amt=Math.min(amt,cfg.cap);if(round.phase!=='trading')return null;
+  const s={who,side,amt};
+  if(round.type==='updown'){const p=side==='up'?probUp():1-probUp();s.shares=amt/Math.max(p,.05);round[side]+=s.shares}
+  else round[side==='up'?'potY':'potN']+=amt;
+  round.stakes.push(s);stats.volume+=amt;stats.players.add(who);return s;
+}
+function payout(s,upWon,tie){
+  if(tie)return s.amt; if(s.side!==(upWon?'up':'down'))return 0;
+  if(round.type==='updown')return s.shares;
+  const side=round.stakes.filter(x=>x.side===s.side).reduce((a,x)=>a+x.amt,0)+cfg.opening;
+  return s.amt/side*(round.potY+round.potN);
+}
+function settle(){
+  const tie=round.type==='updown'&&round.end===round.start;
+  const upWon=round.type==='updown'?round.end>round.start:round.end>=round.threshold;
+  const intake=round.stakes.reduce((a,x)=>a+x.amt,0),paid=round.stakes.reduce((a,s)=>a+payout(s,upWon,tie),0);
+  stats.lpPnl+=round.type==='updown'?intake-paid:(round.potY+round.potN-paid)-2*cfg.opening;
+  let mine=null;
+  if(me.pos&&me.pos.n===round.n){const w=payout(me.pos,upWon,tie);me.bal+=w;mine=w-me.pos.amt;me.pos=null;
+    toast(tie?'Tie. Your stake was refunded.':mine>0?`You won ${fmt(w)}`:`Round #${round.n} settled against you`)}
+  stats.log.unshift({n:round.n,type:round.type,res:tie?'t':upWon?'y':'n',start:round.start,end:round.end,th:round.threshold,vol:intake,mine});
+  stats.log.length=Math.min(stats.log.length,6);
+}
+newRound();
+setInterval(()=>{
+  if(round.phase==='trading'&&Math.random()<.6)stake(Math.random()<.5?'up':'down',+(Math.random()*cfg.cap).toFixed(1),'0x'+(Math.random()*1e4|0));
+  round.t--;
+  if(round.t<=0){
+    if(round.phase==='trading'){round.phase='window';round.t=round.len=cfg.window;round.start=+price.toPrecision(5)}
+    else{round.end=+price.toPrecision(5);settle();newRound();mount()}
+  }
+  update();
+},1000);
+
+/* ---- markup (mounted once per view/round; update() only touches text so transitions survive) ---- */
+const question=()=>round.type==='updown'?`Will $${BRAND} be higher in ${cfg.window} seconds?`:`Will $${BRAND} close at or above ${round.threshold}?`;
+const market=()=>`
+ <div class="crumb">Crypto · ${round.type==='updown'?'Up or down':'Price threshold'} · Round #${round.n}</div>
+ <div class="mhead"><div class="token">${BRAND.slice(0,2)}</div><h1 id="q">${question()}</h1></div>
+ <div class="chance"><span class="big num" id="chance"></span><span class="mut">chance</span><span class="delta num" id="delta"></span></div>
+ <canvas id="c" width="1200" height="330"></canvas>
+ <div class="phase" id="phase"><span class="dot"></span><span id="phaseTxt"></span><span class="mut num" id="phaseT" style="margin-left:auto"></span></div>
+ <div class="track"><span id="bar1"></span></div>
+ <div class="rules"><div><span class="mut">Settles from</span><b>Base pool TWAP</b></div><div><span class="mut">Reference</span><b class="num" id="ref">—</b></div><div><span class="mut">Live price</span><b class="num" id="live"></b></div></div>
+ <table><thead><tr><th>Round</th><th>Result</th><th>Start → End</th><th>Volume</th></tr></thead><tbody id="hist"></tbody></table>`;
+const panel=()=>`
+ <aside class="panel">
+  <div class="tabs"><span class="on">Buy</span><span>Sell</span></div>
+  <div class="sides"><button class="side yes" id="sYes" onclick="setPick('up')"></button><button class="side no" id="sNo" onclick="setPick('down')"></button></div>
+  <label class="f">Amount<div class="amt">$<input id="amt" class="num" inputmode="decimal" value="${amount}" oninput="amount=+this.value||0;update()"></div></label>
+  <div class="chips">${[1,5,10,20].map(v=>`<button class="chip" onclick="amount=${v};$('amt').value=${v};update()">$${v}</button>`).join('')}</div>
+  <div class="sum"><div><span class="mut">Avg price</span><span class="num" id="avg"></span></div><div><span class="mut">Stake cap</span><span class="num">${fmt(cfg.cap)}</span></div><div><span>To win</span><span class="win num" id="towin"></span></div></div>
+  <button class="cta" id="cta" onclick="buy()"><span class="lbl" id="ctaTxt"></span></button>
+  <div class="pos hide num" id="pos"></div>
+  <div class="fine num">Balance <span id="bal"></span> · settles automatically, no reporter</div>
+ </aside>`;
+const views={
+  player:()=>`<div class="grid"><section>${market()}</section>${panel()}</div>`,
+  pitch:()=>`<section class="hero"><div class="crumb">For token teams and Base launchpads</div>
+     <h1>A market on $${BRAND}, every 30 seconds.</h1>
+     <p>Back-to-back prediction Rounds on your own token, under your brand. Settled automatically from your Base pool. You seed it, your holders trade it, your community stays busy.</p>
+     <button class="ghost" onclick="toast('PROTOTYPE: opens Telegram / calendar')">Book a 7-day pilot</button></section>
+   <div class="offer"><div><span class="mut">7-day pilot</span><b>$300 flat</b></div><div><span class="mut">Cut of stakes</span><b>None</b></div><div><span class="mut">Settlement</span><b>Your pool, onchain</b></div></div>
+   <div class="grid"><section>${market()}</section>${panel()}</div>`,
+  dashboard:()=>`<div class="crumb">Campaign · day 1 of 7</div><h1 style="margin-top:8px">$${BRAND} Rounds</h1>
+   <div class="kpis"><div><span class="mut">Rounds run</span><b class="num" id="kR"></b></div><div><span class="mut">Volume</span><b class="num" id="kV"></b></div><div><span class="mut">Players</span><b class="num" id="kP"></b></div><div><span class="mut">LP result</span><b class="num" id="kL"></b></div></div>
+   <h2>Campaign settings</h2><p class="mut" style="margin:4px 0 0">Applies from the next Round.</p>
+   <div class="settings">${[['trade','Trading phase (5–30 s)'],['window','Window (2–30 s)'],['cap','Stake cap ($)'],['seed','LP seed ($)'],['opening','Opening stake ($)']].map(([k,l])=>`<label>${l}<input class="num" value="${cfg[k]}" onchange="cfg.${k}=+this.value"></label>`).join('')}
+    <label>Market type<select onchange="cfg.type=this.value">${['updown','threshold','mix'].map(t=>`<option ${cfg.type===t?'selected':''}>${t}</option>`).join('')}</select></label></div>
+   <div class="grid" style="margin-top:36px"><section>${market()}</section>${panel()}</div>`
+};
+function mount(){
+  const keep=document.activeElement&&document.activeElement.id==='amt';
+  $('app').innerHTML=views[V]();lastProb=probUp();
+  $('bar').innerHTML=Object.keys(views).map(k=>`<button class="${k===V?'on':''}" onclick="go('${k}')">${k[0].toUpperCase()+k.slice(1)}</button>`).join('');
+  update();drawChart();if(keep)$('amt').focus();
+}
+function update(){
+  const p=probUp(),ud=round.type==='updown',trading=round.phase==='trading';
+  const set=(id,v)=>{const e=$(id);if(e&&e.textContent!==v)e.textContent=v};
+  set('chance',Math.round(p*100)+'%');
+  const d=Math.round((p-.5)*100);const de=$('delta');if(de){de.textContent=(d>=0?'▲ ':'▼ ')+Math.abs(d);de.className='delta num '+(d>=0?'flash-up':'flash-dn')}
+  set('phaseTxt',trading?'Trading open':'Window running, trading closed');
+  $('phase').className='phase'+(trading?'':' window');
+  set('phaseT',round.t+'s');
+  $('bar1').style.transform=`scaleX(${round.t/round.len})`;
+  set('ref',ud?(round.start?String(round.start):'At close'):String(round.threshold));
+  set('live',price.toPrecision(5));
+  const yes=ud?'Up':'Yes',no=ud?'Down':'No',pp=pick==='up'?p:1-p,a=Math.min(amount,cfg.cap,me.bal);
+  set('sYes',`${yes} ${cents(p)}`);set('sNo',`${no} ${cents(1-p)}`);
+  $('sYes').classList.toggle('on',pick==='up');$('sNo').classList.toggle('on',pick==='down');
+  const can=trading&&!me.pos&&a>0;$('sYes').disabled=$('sNo').disabled=!trading;
+  set('avg',cents(pp));set('towin',fmt(a/Math.max(pp,.05)));set('bal',fmt(me.bal));
+  const c=$('cta');c.disabled=!can;c.classList.toggle('no',pick==='down');
+  set('ctaTxt',!trading?'Trading opens next Round':me.pos?'You are in this Round':`Buy ${pick==='up'?yes:no}`);
+  const ps=$('pos');ps.classList.toggle('hide',!me.pos);if(me.pos)set('pos',`In Round #${me.pos.n}: ${fmt(me.pos.amt)} on ${me.pos.side==='up'?yes:no}`);
+  $('hist').innerHTML=stats.log.map(r=>`<tr><td class="num">#${r.n} <span class="mut">${r.type==='updown'?'up/down':'≥ '+r.th}</span></td>
+    <td><span class="pill ${r.res}">${r.res==='t'?'Tie':r.type==='updown'?(r.res==='y'?'Up':'Down'):(r.res==='y'?'Yes':'No')}</span>${r.mine==null?'':` <span class="num ${r.mine>0?'flash-up':'flash-dn'}">${r.mine>0?'+':''}${r.mine.toFixed(2)}</span>`}</td>
+    <td class="num mut">${r.start} → ${r.end}</td><td class="num">${fmt(r.vol)}</td></tr>`).join('')||'<tr><td class="mut" colspan="4">First Round in progress</td></tr>';
+  if($('kR')){set('kR',String(stats.rounds));set('kV',fmt(stats.volume));set('kP',String(stats.players.size));
+    set('kL',(stats.lpPnl>=0?'+':'−')+fmt(Math.abs(stats.lpPnl)));$('kL').className='num '+(stats.lpPnl>=0?'flash-up':'flash-dn')}
+}
+function drawChart(){const c=$('c');if(!c||hist.length<2)return;const x=c.getContext('2d'),W=1200,H=330;x.clearRect(0,0,W,H);
+  const ref=round.type==='threshold'?round.threshold:round.start,vals=ref?[...hist,ref]:hist;
+  const mn=Math.min(...vals),mx=Math.max(...vals),Y=v=>H-24-(v-mn)/(mx-mn||1)*(H-48),X=i=>i*(W-60)/239;
+  x.strokeStyle='#eef0f3';x.lineWidth=1;for(let i=0;i<4;i++){const y=24+i*(H-48)/3;x.beginPath();x.moveTo(0,y);x.lineTo(W-60,y);x.stroke()}
+  x.fillStyle='#69707d';x.font='500 20px Inter';for(let i=0;i<4;i++){const v=mx-i*(mx-mn)/3;x.fillText(v.toPrecision(4),W-56,24+i*(H-48)/3+6)}
+  if(ref){x.strokeStyle='#0f1419';x.globalAlpha=.35;x.setLineDash([6,6]);x.beginPath();x.moveTo(0,Y(ref));x.lineTo(W-60,Y(ref));x.stroke();x.setLineDash([]);x.globalAlpha=1}
+  const up=!ref||price>=ref;x.strokeStyle=up?'#00a86b':'#d33f49';x.lineWidth=3;x.lineJoin='round';x.beginPath();
+  hist.forEach((p,i)=>i?x.lineTo(X(i),Y(p)):x.moveTo(X(i),Y(p)));x.stroke();
+  const lx=X(hist.length-1),ly=Y(price);x.fillStyle=x.strokeStyle;x.beginPath();x.arc(lx,ly,6,0,7);x.fill()}
+window.setPick=s=>{pick=s;update()};
+window.buy=()=>{const a=Math.min(amount,cfg.cap,me.bal);if(a<=0)return;const c=$('cta');c.classList.add('busy');
+  setTimeout(()=>{const s=stake(pick,a,'you');c.classList.remove('busy');if(!s)return;me.bal-=a;me.pos={n:round.n,...s};update();toast(`Bought ${fmt(a)} of ${pick==='up'?(round.type==='updown'?'Up':'Yes'):(round.type==='updown'?'Down':'No')}`)},350)};
+let tt;function toast(m){const t=$('toast');t.textContent=m;t.classList.remove('hide');clearTimeout(tt);tt=setTimeout(()=>t.classList.add('hide'),2400)}
+window.go=k=>{V=k;q.set('v',k);history.replaceState(0,'','?'+q);mount()};
+mount();
+</script></body></html>

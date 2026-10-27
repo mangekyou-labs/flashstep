@@ -78,6 +78,9 @@ contract MarketCapReader {
                 revert NoValidMarketCap();
             }
         }
-        result.marketCap = Math.mulDiv(result.reading.price, result.totalSupply, priceReader.tokenUnit());
+        uint256 baseUnit = priceReader.tokenUnit();
+        (uint256 high,) = Math.mul512(result.reading.price, result.totalSupply);
+        if (high >= baseUnit) revert NoValidMarketCap(); // Math.mulDiv would panic past uint256.
+        result.marketCap = Math.mulDiv(result.reading.price, result.totalSupply, baseUnit);
     }
 }

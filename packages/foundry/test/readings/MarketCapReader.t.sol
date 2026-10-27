@@ -165,6 +165,20 @@ contract MarketCapReaderTest is Test {
         assertEq(reverseCap.readMarketCap(515).totalSupply, 2_000 ether);
     }
 
+    function testMarketCapBeyondUint256RejectsWithoutPanic() public {
+        FixedReadingToken huge = new FixedReadingToken(18, 1e60);
+        MockBasePool hugePool = new MockBasePool(address(huge), pool.token1());
+        hugePool.write(400000); // About 2.4e17 quote per base: 2.4e53 * 1e60 / 1e18 exceeds uint256.
+        BasePoolReader hugePrices = new BasePoolReader(address(hugePool), address(huge), 30);
+        MarketCapReader hugeCaps = new MarketCapReader(hugePrices, MarketCapReader.SupplyMode.Fixed, 1e60);
+        vm.roll(515);
+        vm.warp(1_030);
+        hugePrices.capture();
+        vm.roll(516);
+        vm.expectRevert(MarketCapReader.NoValidMarketCap.selector);
+        hugeCaps.readMarketCap(515);
+    }
+
     function testFixedSupplyConfigurationMustMatchTheVettedValue() public {
         vm.expectRevert(MarketCapReader.InvalidSupplyConfiguration.selector);
         new MarketCapReader(prices, MarketCapReader.SupplyMode.Fixed, 0);

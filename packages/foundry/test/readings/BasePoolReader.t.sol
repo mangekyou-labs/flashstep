@@ -28,7 +28,6 @@ contract BasePoolReaderTest is Test {
         pool.write(0);
         BasePoolReader.Reading memory reading = reader.capture();
         assertEq(reading.price, 1 ether);
-        assertEq(reading.marketCap, 1_000 ether);
         assertEq(reading.blockNumber, 515);
         assertEq(reading.timestamp, 1_030);
         vm.warp(1_100);
@@ -75,18 +74,14 @@ contract BasePoolReaderTest is Test {
         reader.read(516);
     }
 
-    function testSupplyIsCapturedWithPriceAndNeverReplacedByLaterSupply() public {
+    function testCapturedPriceStaysPinnedWhenSupplyChanges() public {
         vm.warp(1_030);
         vm.roll(515);
-        token.setTotalSupply(2_000 ether);
-        BasePoolReader.Reading memory first = reader.capture();
-        assertEq(first.marketCap, 2_000 ether);
+        reader.capture();
         token.setTotalSupply(3_000 ether);
-        assertEq(reader.capture().totalSupply, 2_000 ether); // Same block is immutable.
         vm.warp(1_032);
         vm.roll(516);
-        assertEq(reader.capture().marketCap, 3_000 ether);
-        assertEq(reader.read(515).marketCap, 2_000 ether);
+        assertEq(reader.read(515).price, 1 ether);
     }
 
     function testNegativeMeanTickRoundsDown() public {
@@ -109,7 +104,6 @@ contract BasePoolReaderTest is Test {
         vm.roll(515);
         assertApproxEqRel(forward.capture().price, 1 ether, 0.0001 ether);
         assertApproxEqRel(reverse.capture().price, 1 ether, 0.0001 ether);
-        assertApproxEqRel(forward.read(515).marketCap, 1_000 ether, 0.0001 ether);
     }
 
     function testMinimumLookbackIsMoreThanOneTwoSecondBlock() public {
@@ -136,5 +130,21 @@ contract BasePoolReaderTest is Test {
         vm.warp(1_030);
         vm.roll(515);
         assertEq(testnetReader.capture().price, 1 ether);
+    }
+
+    function testPriceOnlyTokenDoesNotNeedTotalSupply() public {
+        MetadataOnlyToken priceToken = new MetadataOnlyToken();
+        MockBasePool pricePool = new MockBasePool(address(priceToken), address(quote));
+        pricePool.write(0);
+        BasePoolReader priceReader = new BasePoolReader(address(pricePool), address(priceToken), 30);
+        vm.warp(1_030);
+        vm.roll(515);
+        assertEq(priceReader.capture().price, 1 ether);
+    }
+}
+
+contract MetadataOnlyToken {
+    function decimals() external pure returns (uint8) {
+        return 18;
     }
 }

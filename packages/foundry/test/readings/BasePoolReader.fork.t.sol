@@ -4,6 +4,7 @@ pragma solidity ^0.8.24;
 import { Test } from "forge-std/Test.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { BasePoolReader } from "../../contracts/readings/BasePoolReader.sol";
+import { MarketCapReader } from "../../contracts/readings/MarketCapReader.sol";
 
 /// @notice Run explicitly with BASE_RPC_URL set to an archive-capable Base endpoint.
 contract BasePoolReaderForkTest is Test {
@@ -28,8 +29,6 @@ contract BasePoolReaderForkTest is Test {
         assertEq(reading.blockNumber, 35_000_000);
         assertGt(reading.price, 4_000 ether);
         assertLt(reading.price, 5_000 ether);
-        assertEq(reading.totalSupply, IERC20(WETH).totalSupply());
-        assertGt(reading.marketCap, 0);
         assertEq(reader.read(35_000_000).price, reading.price);
         emit log_named_uint("30-second WETH/USDC price (1e18)", reading.price);
 
@@ -37,5 +36,12 @@ contract BasePoolReaderForkTest is Test {
         BasePoolReader shortest = new BasePoolReader(POOL, WETH, 4);
         assertGt(shortest.capture().price, 4_000 ether);
         assertLt(shortest.read(35_000_000).price, 5_000 ether);
+
+        // Mutable WETH has no vetted block-number total-supply checkpoint interface here.
+        MarketCapReader capReader = new MarketCapReader(reader, MarketCapReader.SupplyMode.Unsupported, 0);
+        vm.roll(35_000_001);
+        vm.expectRevert(MarketCapReader.NoValidMarketCap.selector);
+        capReader.readMarketCap(35_000_000);
+        assertEq(reader.read(35_000_000).price, reading.price);
     }
 }

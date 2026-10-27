@@ -7,10 +7,8 @@ import { IObservationPool } from "./IObservationPool.sol";
 import { TickMath } from "./TickMath.sol";
 
 /// @notice Captures block-pinned Uniswap v3 geometric TWAP Readings for both Round contracts.
-/// @dev Supply is sampled at capture execution. A standard ERC-20 cannot prove historical or
-/// finalized end-of-block supply. Missing boundary captures must cause the consuming Round to refund.
-/// Market-cap settlement is unsafe for mutable-supply or flash-mintable tokens without consumer
-/// eligibility restrictions: a permissionless first capture can lock transiently inflated supply.
+/// @dev This module captures prices only. MarketCapReader resolves eligible supply after the
+/// endpoint block has ended. Missing boundary captures must cause the consuming Round to refund.
 contract BasePoolReader {
     error InvalidConfiguration();
     error NoValidReading();
@@ -19,8 +17,6 @@ contract BasePoolReader {
         uint256 blockNumber;
         uint256 timestamp;
         uint256 price; // Quote tokens per whole base token, scaled by 1e18.
-        uint256 totalSupply; // Raw base-token units at capture execution.
-        uint256 marketCap; // Quote tokens, scaled by 1e18.
     }
 
     IObservationPool public immutable pool;
@@ -32,9 +28,7 @@ contract BasePoolReader {
     bool public immutable tokenIsToken0;
     mapping(uint256 => Reading) private readings;
 
-    event ReadingCaptured(
-        uint256 indexed blockNumber, uint256 timestamp, uint256 price, uint256 totalSupply, uint256 marketCap
-    );
+    event ReadingCaptured(uint256 indexed blockNumber, uint256 timestamp, uint256 price);
 
     constructor(address pool_, address token_, uint32 lookback_) {
         if ((block.chainid != 8453 && block.chainid != 84532) || lookback_ < 4 || lookback_ > 30) {
@@ -91,15 +85,9 @@ contract BasePoolReader {
         }
         uint256 price = rawQuote / quoteUnit;
         if (price == 0) revert NoValidReading();
-        uint256 supply;
-        try token.totalSupply() returns (uint256 value) {
-            supply = value;
-        } catch {
-            revert NoValidReading();
-        }
-        reading = Reading(block.number, block.timestamp, price, supply, Math.mulDiv(price, supply, tokenUnit));
+        reading = Reading(block.number, block.timestamp, price);
         readings[block.number] = reading;
-        emit ReadingCaptured(block.number, block.timestamp, price, supply, reading.marketCap);
+        emit ReadingCaptured(block.number, block.timestamp, price);
     }
 
     /// @notice Read a previously captured endpoint; no extrapolation or latest-price fallback.

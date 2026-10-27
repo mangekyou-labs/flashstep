@@ -19,6 +19,11 @@ contract BasePoolReader {
         uint256 price; // Quote tokens per whole base token, scaled by 1e18.
     }
 
+    /// @notice Shortest lookback spanning more than one 2-second Base block.
+    uint32 public constant MIN_LOOKBACK = 4;
+    /// @notice Longest supported lookback; initial Campaigns use 30 seconds.
+    uint32 public constant MAX_LOOKBACK = 60;
+
     IObservationPool public immutable pool;
     IERC20Metadata public immutable token;
     address public immutable quoteToken;
@@ -31,7 +36,7 @@ contract BasePoolReader {
     event ReadingCaptured(uint256 indexed blockNumber, uint256 timestamp, uint256 price);
 
     constructor(address pool_, address token_, uint32 lookback_) {
-        if (lookback_ < 4 || lookback_ > 30) {
+        if (lookback_ < MIN_LOOKBACK || lookback_ > MAX_LOOKBACK) {
             revert InvalidConfiguration();
         }
         pool = IObservationPool(pool_);
@@ -69,7 +74,7 @@ contract BasePoolReader {
         }
         int56 mean = delta / int56(uint56(lookback));
         if (delta < 0 && delta % int56(uint56(lookback)) != 0) --mean;
-        if (mean < -887272 || mean > 887272) revert NoValidReading();
+        if (mean < TickMath.MIN_TICK || mean > TickMath.MAX_TICK) revert NoValidReading();
         uint160 sqrtRatio = TickMath.getSqrtRatioAtTick(int24(mean));
         uint256 rawQuote;
         if (sqrtRatio <= type(uint128).max) {

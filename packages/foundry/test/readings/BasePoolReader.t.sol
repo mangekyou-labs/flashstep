@@ -114,6 +114,15 @@ contract BasePoolReaderTest is Test {
         assertEq(shortest.capture().price, 1 ether);
     }
 
+    function testLookbackCeilingIsSixtySeconds() public {
+        vm.expectRevert(BasePoolReader.InvalidConfiguration.selector);
+        new BasePoolReader(address(pool), address(token), 61);
+        BasePoolReader longest = new BasePoolReader(address(pool), address(token), 60);
+        vm.warp(1_060);
+        vm.roll(530);
+        assertEq(longest.capture().price, 1 ether);
+    }
+
     function testRejectsTokenOutsideThePool() public {
         vm.expectRevert(BasePoolReader.InvalidConfiguration.selector);
         new BasePoolReader(address(pool), address(0x1234), 30);

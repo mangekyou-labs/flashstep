@@ -9,6 +9,8 @@ import { TickMath } from "./TickMath.sol";
 /// @notice Captures block-pinned Uniswap v3 geometric TWAP Readings for both Round contracts.
 /// @dev Supply is sampled at capture execution. A standard ERC-20 cannot prove historical or
 /// finalized end-of-block supply. Missing boundary captures must cause the consuming Round to refund.
+/// Market-cap settlement is unsafe for mutable-supply or flash-mintable tokens without consumer
+/// eligibility restrictions: a permissionless first capture can lock transiently inflated supply.
 contract BasePoolReader {
     error InvalidConfiguration();
     error NoValidReading();

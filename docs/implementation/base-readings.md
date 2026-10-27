@@ -20,6 +20,14 @@ Future Round integrations must capture the scheduled boundary block and retain i
 
 **Supply is sampled at capture execution, not proved at finalized end-of-block state.** A mint or burn later in that same block can change final supply. Literal finalized end-block supply for arbitrary mutable ERC-20s requires a historical-checkpoint token or verified historical state proof. This module does not claim that capability. Fixed-supply tokens avoid that distinction; mutable-supply Campaigns must resolve it before market-cap settlement is enabled.
 
+## Review status
+
+Issue #2 remains open. The standards review found no issues; the spec review identified an unresolved P1 requirement: captured supply is not finalized end-block supply. The user decision on supply semantics is pending.
+
+Market-cap settlement must not be enabled for mutable-supply or flash-mintable tokens with the current module. Because capture is permissionless and the first capture wins, a caller can flash-mint, capture the inflated supply, and burn before the transaction ends. The stored market cap then retains that transient supply even though the block ends with a different total supply.
+
+Supporting generic end-block supply requires an authenticated historical checkpoint or verified state proof. Accepting execution-time capture supply instead requires explicit token-eligibility restrictions that exclude transient supply manipulation. The current implementation does not enforce those restrictions, and this review note does not narrow the approved spec or resolve the requirement.
+
 ## Confirmed pool and lookback
 
 The fork fixture is Base block **35,000,000**, timestamp **1756789347**, using Uniswap v3 WETH/USDC fee 500 pool **0xd0b53D9277642d899DF5C87A3966A349A798F224**. Token0 is WETH (18 decimals), token1 USDC (6 decimals). Its 30-second Reading is **4387.361616078113586889 USDC/WETH**. The fork also successfully reads a 4-second lookback.

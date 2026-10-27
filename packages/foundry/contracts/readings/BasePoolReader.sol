@@ -31,7 +31,7 @@ contract BasePoolReader {
     event ReadingCaptured(uint256 indexed blockNumber, uint256 timestamp, uint256 price);
 
     constructor(address pool_, address token_, uint32 lookback_) {
-        if ((block.chainid != 8453 && block.chainid != 84532) || lookback_ < 4 || lookback_ > 30) {
+        if (lookback_ < 4 || lookback_ > 30) {
             revert InvalidConfiguration();
         }
         pool = IObservationPool(pool_);
@@ -53,7 +53,7 @@ contract BasePoolReader {
     function capture() external returns (Reading memory reading) {
         reading = readings[block.number];
         if (reading.timestamp != 0) return reading;
-        if ((block.chainid != 8453 && block.chainid != 84532) || block.timestamp < lookback) revert NoValidReading();
+        if (block.timestamp < lookback) revert NoValidReading();
         uint32[] memory secondsAgos = new uint32[](2);
         secondsAgos[0] = lookback;
         int56[] memory cumulatives;

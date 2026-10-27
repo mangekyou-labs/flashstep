@@ -12,7 +12,6 @@ contract BasePoolReaderTest is Test {
     BasePoolReader internal reader;
 
     function setUp() public {
-        vm.chainId(8453);
         vm.warp(1_000);
         vm.roll(500);
         token = new MockReadingToken(18, 1_000 ether);
@@ -115,21 +114,17 @@ contract BasePoolReaderTest is Test {
         assertEq(shortest.capture().price, 1 ether);
     }
 
-    function testRejectsWrongChainAndToken() public {
-        vm.chainId(1);
-        vm.expectRevert(BasePoolReader.InvalidConfiguration.selector);
-        new BasePoolReader(address(pool), address(token), 30);
-        vm.chainId(8453);
+    function testRejectsTokenOutsideThePool() public {
         vm.expectRevert(BasePoolReader.InvalidConfiguration.selector);
         new BasePoolReader(address(pool), address(0x1234), 30);
     }
 
-    function testBaseSepoliaUsesTheSameReadingModuleForPilotRehearsal() public {
-        vm.chainId(84532);
-        BasePoolReader testnetReader = new BasePoolReader(address(pool), address(token), 30);
+    function testReaderWorksOnANonBaseChain() public {
+        vm.chainId(31337);
+        BasePoolReader localReader = new BasePoolReader(address(pool), address(token), 30);
         vm.warp(1_030);
         vm.roll(515);
-        assertEq(testnetReader.capture().price, 1 ether);
+        assertEq(localReader.capture().price, 1 ether);
     }
 
     function testPriceOnlyTokenDoesNotNeedTotalSupply() public {

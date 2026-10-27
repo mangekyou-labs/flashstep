@@ -49,7 +49,6 @@ contract MarketCapReaderTest is Test {
     MarketCapReader internal caps;
 
     function setUp() public {
-        vm.chainId(8453);
         vm.roll(500);
         vm.warp(1_000);
         token = new ReadingVotesToken();

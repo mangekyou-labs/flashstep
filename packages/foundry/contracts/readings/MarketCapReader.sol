@@ -23,7 +23,7 @@ contract MarketCapReader {
     struct MarketCapReading {
         BasePoolReader.Reading reading;
         uint256 totalSupply; // Raw base-token units at the end of reading.blockNumber.
-        uint256 marketCap; // Whole quote tokens, scaled by 1e18.
+        uint256 marketCap; // Whole quote tokens, scaled by BasePoolReader.PRICE_SCALE (1e36).
     }
 
     BasePoolReader public immutable priceReader;

@@ -70,9 +70,9 @@ contract MarketCapReaderTest is Test {
         vm.warp(1_032);
         token.mint(5_000 ether); // Current supply must not replace historical supply.
         MarketCapReader.MarketCapReading memory reading = caps.readMarketCap(515);
-        assertEq(reading.reading.price, 1 ether);
+        assertEq(reading.reading.price, 1e36);
         assertEq(reading.totalSupply, 1_500 ether);
-        assertEq(reading.marketCap, 1_500 ether);
+        assertEq(reading.marketCap, 1_500e36);
     }
 
     function testCurrentAndFutureBlockMarketCapIsRejected() public {
@@ -93,11 +93,11 @@ contract MarketCapReaderTest is Test {
         MarketCapReader unsupported = new MarketCapReader(priceReader, MarketCapReader.SupplyMode.Unsupported, 0);
         vm.roll(515);
         vm.warp(1_030);
-        assertEq(priceReader.capture().price, 1 ether);
+        assertEq(priceReader.capture().price, 1e36);
         vm.roll(516);
         vm.expectRevert(MarketCapReader.NoValidMarketCap.selector);
         unsupported.readMarketCap(515);
-        assertEq(priceReader.read(515).price, 1 ether);
+        assertEq(priceReader.read(515).price, 1e36);
     }
 
     function testMissingCheckpointInterfaceRejectsMarketCapOnly() public {
@@ -110,7 +110,7 @@ contract MarketCapReaderTest is Test {
         vm.roll(516);
         vm.expectRevert(MarketCapReader.NoValidMarketCap.selector);
         missing.readMarketCap(515);
-        assertEq(missing.priceReader().read(515).price, 1 ether);
+        assertEq(missing.priceReader().read(515).price, 1e36);
     }
 
     function testTimestampClockAndFaultySourcesRejectMarketCapOnly() public {
@@ -134,7 +134,7 @@ contract MarketCapReaderTest is Test {
         vm.expectRevert(MarketCapReader.NoValidMarketCap.selector);
         caps.readMarketCap(515);
         vm.clearMockedCalls();
-        assertEq(prices.read(515).price, 1 ether);
+        assertEq(prices.read(515).price, 1e36);
     }
 
     function testMissingPriceCaptureCannotProduceMarketCap() public {
@@ -159,8 +159,8 @@ contract MarketCapReaderTest is Test {
         vm.expectRevert(MarketCapReader.NoValidMarketCap.selector);
         forwardCap.readMarketCap(515);
         vm.roll(516);
-        assertApproxEqRel(forwardCap.readMarketCap(515).marketCap, 1_000 ether, 0.0001 ether);
-        assertApproxEqRel(reverseCap.readMarketCap(515).marketCap, 2_000 ether, 0.0001 ether);
+        assertApproxEqRel(forwardCap.readMarketCap(515).marketCap, 1_000e36, 0.0001 ether);
+        assertApproxEqRel(reverseCap.readMarketCap(515).marketCap, 2_000e36, 0.0001 ether);
         assertEq(forwardCap.readMarketCap(515).totalSupply, 1_000e6);
         assertEq(reverseCap.readMarketCap(515).totalSupply, 2_000 ether);
     }

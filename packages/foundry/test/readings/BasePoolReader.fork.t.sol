@@ -27,15 +27,15 @@ contract BasePoolReaderForkTest is Test {
         BasePoolReader reader = new BasePoolReader(POOL, WETH, 30);
         BasePoolReader.Reading memory reading = reader.capture();
         assertEq(reading.blockNumber, 35_000_000);
-        assertGt(reading.price, 4_000 ether);
-        assertLt(reading.price, 5_000 ether);
+        assertGt(reading.price, 4_000e36);
+        assertLt(reading.price, 5_000e36);
         assertEq(reader.read(35_000_000).price, reading.price);
-        emit log_named_uint("30-second WETH/USDC price (1e18)", reading.price);
+        emit log_named_uint("30-second WETH/USDC price (1e36)", reading.price);
 
         // Four seconds is the shortest supported multi-block lookback at two-second blocks.
         BasePoolReader shortest = new BasePoolReader(POOL, WETH, 4);
-        assertGt(shortest.capture().price, 4_000 ether);
-        assertLt(shortest.read(35_000_000).price, 5_000 ether);
+        assertGt(shortest.capture().price, 4_000e36);
+        assertLt(shortest.read(35_000_000).price, 5_000e36);
 
         // Mutable WETH has no vetted block-number total-supply checkpoint interface here.
         MarketCapReader capReader = new MarketCapReader(reader, MarketCapReader.SupplyMode.Unsupported, 0);

@@ -16,13 +16,15 @@ contract BasePoolReader {
     struct Reading {
         uint256 blockNumber;
         uint256 timestamp;
-        uint256 price; // Quote tokens per whole base token, scaled by 1e18.
+        uint256 price; // Whole quote tokens per whole base token, scaled by PRICE_SCALE.
     }
 
     /// @notice Shortest lookback spanning more than one 2-second Base block.
     uint32 public constant MIN_LOOKBACK = 4;
     /// @notice Longest supported lookback; initial Campaigns use 30 seconds.
     uint32 public constant MAX_LOOKBACK = 60;
+    /// @notice Fixed-point scale of Reading prices, so prices below 1e-18 still resolve and compare.
+    uint256 public constant PRICE_SCALE = 1e36;
 
     IObservationPool public immutable pool;
     IERC20Metadata public immutable token;
@@ -31,6 +33,8 @@ contract BasePoolReader {
     uint256 public immutable tokenUnit;
     uint256 public immutable quoteUnit;
     bool public immutable tokenIsToken0;
+    /// @dev PRICE_SCALE * tokenUnit / quoteUnit: always an integer between 1e18 and 1e54.
+    uint256 private immutable rawPriceScale;
     mapping(uint256 => Reading) private readings;
 
     event ReadingCaptured(uint256 indexed blockNumber, uint256 timestamp, uint256 price);
@@ -52,6 +56,7 @@ contract BasePoolReader {
         if (baseDecimals > 18 || quoteDecimals > 18) revert InvalidConfiguration();
         tokenUnit = 10 ** baseDecimals;
         quoteUnit = 10 ** quoteDecimals;
+        rawPriceScale = 10 ** (36 + uint256(baseDecimals) - quoteDecimals);
     }
 
     /// @notice First capture in a block wins; every subsequent call returns that exact Reading.
@@ -76,19 +81,14 @@ contract BasePoolReader {
         if (delta < 0 && delta % int56(uint56(lookback)) != 0) --mean;
         if (mean < TickMath.MIN_TICK || mean > TickMath.MAX_TICK) revert NoValidReading();
         uint160 sqrtRatio = TickMath.getSqrtRatioAtTick(int24(mean));
-        uint256 rawQuote;
+        uint256 price;
         if (sqrtRatio <= type(uint128).max) {
             uint256 ratio = uint256(sqrtRatio) * sqrtRatio;
-            rawQuote = tokenIsToken0
-                ? Math.mulDiv(ratio, tokenUnit * 1e18, 1 << 192)
-                : Math.mulDiv(1 << 192, tokenUnit * 1e18, ratio);
+            price = tokenIsToken0 ? _mulDiv(ratio, rawPriceScale, 1 << 192) : _mulDiv(1 << 192, rawPriceScale, ratio);
         } else {
             uint256 ratio = Math.mulDiv(sqrtRatio, sqrtRatio, 1 << 64);
-            rawQuote = tokenIsToken0
-                ? Math.mulDiv(ratio, tokenUnit * 1e18, 1 << 128)
-                : Math.mulDiv(1 << 128, tokenUnit * 1e18, ratio);
+            price = tokenIsToken0 ? _mulDiv(ratio, rawPriceScale, 1 << 128) : _mulDiv(1 << 128, rawPriceScale, ratio);
         }
-        uint256 price = rawQuote / quoteUnit;
         if (price == 0) revert NoValidReading();
         reading = Reading(block.number, block.timestamp, price);
         readings[block.number] = reading;
@@ -99,5 +99,12 @@ contract BasePoolReader {
     function read(uint256 endBlock) external view returns (Reading memory reading) {
         reading = readings[endBlock];
         if (reading.timestamp == 0 || endBlock > block.number) revert NoValidReading();
+    }
+
+    /// @dev Math.mulDiv panics when the result exceeds uint256; at extreme ticks that is no Reading.
+    function _mulDiv(uint256 x, uint256 y, uint256 denominator) private pure returns (uint256) {
+        (uint256 high,) = Math.mul512(x, y);
+        if (high >= denominator) revert NoValidReading();
+        return Math.mulDiv(x, y, denominator);
     }
 }

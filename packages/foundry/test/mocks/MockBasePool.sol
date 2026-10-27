@@ -2,6 +2,7 @@
 pragma solidity ^0.8.24;
 
 import { IObservationPool } from "../../contracts/readings/IObservationPool.sol";
+import { TickMath } from "../../contracts/readings/TickMath.sol";
 
 /// @notice Script a pool's tick at the current vm.warp/vm.roll endpoint.
 /// Each tick applies until the next write, matching v3's time-weighted accumulation.
@@ -34,7 +35,7 @@ contract MockBasePool is IObservationPool {
     }
 
     function write(int24 tick) external {
-        require(tick >= -887272 && tick <= 887272, "tick");
+        require(tick >= TickMath.MIN_TICK && tick <= TickMath.MAX_TICK, "tick");
         int56 cumulative;
         if (observations.length != 0) {
             Observation memory last = observations[observations.length - 1];
@@ -80,5 +81,12 @@ contract MockReadingToken {
 
     function setTotalSupply(uint256 supply) external {
         totalSupply = supply;
+    }
+}
+
+/// @notice Price-only fixture: ERC-20 metadata with no totalSupply().
+contract MetadataOnlyToken {
+    function decimals() external pure returns (uint8) {
+        return 18;
     }
 }

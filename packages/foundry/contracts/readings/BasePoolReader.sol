@@ -26,48 +26,48 @@ contract BasePoolReader {
     /// @notice Fixed-point scale of Reading prices, so prices below 1e-18 still resolve and compare.
     uint256 public constant PRICE_SCALE = 1e36;
 
-    IObservationPool public immutable pool;
-    IERC20Metadata public immutable token;
-    address public immutable quoteToken;
-    uint32 public immutable lookback;
-    uint256 public immutable tokenUnit;
-    uint256 public immutable quoteUnit;
-    bool public immutable tokenIsToken0;
-    /// @dev PRICE_SCALE * tokenUnit / quoteUnit: always an integer between 1e18 and 1e54.
-    uint256 private immutable rawPriceScale;
-    mapping(uint256 => Reading) private readings;
+    IObservationPool public immutable i_pool;
+    IERC20Metadata public immutable i_baseToken;
+    address public immutable i_quoteToken;
+    uint32 public immutable i_lookback;
+    uint256 public immutable i_baseUnit;
+    uint256 public immutable i_quoteUnit;
+    bool public immutable i_baseIsToken0;
+    /// @dev PRICE_SCALE * i_baseUnit / i_quoteUnit: always an integer between 1e18 and 1e54.
+    uint256 private immutable i_rawPriceScale;
+    mapping(uint256 => Reading) private s_readings;
 
     event ReadingCaptured(uint256 indexed blockNumber, uint256 timestamp, uint256 price);
 
-    constructor(address pool_, address token_, uint32 lookback_) {
+    constructor(address pool_, address baseToken_, uint32 lookback_) {
         if (lookback_ < MIN_LOOKBACK || lookback_ > MAX_LOOKBACK) {
             revert InvalidConfiguration();
         }
-        pool = IObservationPool(pool_);
-        token = IERC20Metadata(token_);
-        lookback = lookback_;
-        address token0 = pool.token0();
-        address token1 = pool.token1();
-        if (token0 == token1 || (token_ != token0 && token_ != token1)) revert InvalidConfiguration();
-        tokenIsToken0 = token_ == token0;
-        quoteToken = tokenIsToken0 ? token1 : token0;
-        uint8 baseDecimals = token.decimals();
-        uint8 quoteDecimals = IERC20Metadata(quoteToken).decimals();
+        i_pool = IObservationPool(pool_);
+        i_baseToken = IERC20Metadata(baseToken_);
+        i_lookback = lookback_;
+        address token0 = i_pool.token0();
+        address token1 = i_pool.token1();
+        if (token0 == token1 || (baseToken_ != token0 && baseToken_ != token1)) revert InvalidConfiguration();
+        i_baseIsToken0 = baseToken_ == token0;
+        i_quoteToken = i_baseIsToken0 ? token1 : token0;
+        uint8 baseDecimals = i_baseToken.decimals();
+        uint8 quoteDecimals = IERC20Metadata(i_quoteToken).decimals();
         if (baseDecimals > 18 || quoteDecimals > 18) revert InvalidConfiguration();
-        tokenUnit = 10 ** baseDecimals;
-        quoteUnit = 10 ** quoteDecimals;
-        rawPriceScale = 10 ** (36 + uint256(baseDecimals) - quoteDecimals);
+        i_baseUnit = 10 ** baseDecimals;
+        i_quoteUnit = 10 ** quoteDecimals;
+        i_rawPriceScale = 10 ** (36 + uint256(baseDecimals) - quoteDecimals);
     }
 
     /// @notice First capture in a block wins; every subsequent call returns that exact Reading.
     function capture() external returns (Reading memory reading) {
-        reading = readings[block.number];
+        reading = s_readings[block.number];
         if (reading.timestamp != 0) return reading;
-        if (block.timestamp < lookback) revert NoValidReading();
+        if (block.timestamp < i_lookback) revert NoValidReading();
         uint32[] memory secondsAgos = new uint32[](2);
-        secondsAgos[0] = lookback;
+        secondsAgos[0] = i_lookback;
         int56[] memory cumulatives;
-        try pool.observe(secondsAgos) returns (int56[] memory values, uint160[] memory liquidities) {
+        try i_pool.observe(secondsAgos) returns (int56[] memory values, uint160[] memory liquidities) {
             if (values.length != 2 || liquidities.length != 2) revert NoValidReading();
             cumulatives = values;
         } catch {
@@ -77,27 +77,29 @@ contract BasePoolReader {
         unchecked {
             delta = cumulatives[1] - cumulatives[0];
         }
-        int56 mean = delta / int56(uint56(lookback));
-        if (delta < 0 && delta % int56(uint56(lookback)) != 0) --mean;
+        int56 mean = delta / int56(uint56(i_lookback));
+        if (delta < 0 && delta % int56(uint56(i_lookback)) != 0) --mean;
         if (mean < TickMath.MIN_TICK || mean > TickMath.MAX_TICK) revert NoValidReading();
         uint160 sqrtRatio = TickMath.getSqrtRatioAtTick(int24(mean));
         uint256 price;
         if (sqrtRatio <= type(uint128).max) {
             uint256 ratio = uint256(sqrtRatio) * sqrtRatio;
-            price = tokenIsToken0 ? _mulDiv(ratio, rawPriceScale, 1 << 192) : _mulDiv(1 << 192, rawPriceScale, ratio);
+            price =
+                i_baseIsToken0 ? _mulDiv(ratio, i_rawPriceScale, 1 << 192) : _mulDiv(1 << 192, i_rawPriceScale, ratio);
         } else {
             uint256 ratio = Math.mulDiv(sqrtRatio, sqrtRatio, 1 << 64);
-            price = tokenIsToken0 ? _mulDiv(ratio, rawPriceScale, 1 << 128) : _mulDiv(1 << 128, rawPriceScale, ratio);
+            price =
+                i_baseIsToken0 ? _mulDiv(ratio, i_rawPriceScale, 1 << 128) : _mulDiv(1 << 128, i_rawPriceScale, ratio);
         }
         if (price == 0) revert NoValidReading();
         reading = Reading(block.number, block.timestamp, price);
-        readings[block.number] = reading;
+        s_readings[block.number] = reading;
         emit ReadingCaptured(block.number, block.timestamp, price);
     }
 
     /// @notice Read a previously captured endpoint; no extrapolation or latest-price fallback.
     function read(uint256 endBlock) external view returns (Reading memory reading) {
-        reading = readings[endBlock];
+        reading = s_readings[endBlock];
         if (reading.timestamp == 0 || endBlock > block.number) revert NoValidReading();
     }
 

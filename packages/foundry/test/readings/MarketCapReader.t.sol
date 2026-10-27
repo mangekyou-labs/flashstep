@@ -7,7 +7,7 @@ import { ERC20Votes } from "@openzeppelin/contracts/token/ERC20/extensions/ERC20
 import { EIP712 } from "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
 import { BasePoolReader } from "../../contracts/readings/BasePoolReader.sol";
 import { MarketCapReader } from "../../contracts/readings/MarketCapReader.sol";
-import { MockBasePool, MockReadingToken } from "../mocks/MockBasePool.sol";
+import { MetadataOnlyToken, MockBasePool, MockReadingToken } from "../mocks/MockBasePool.sol";
 
 contract ReadingVotesToken is ERC20Votes {
     constructor() ERC20("Reading token", "READ") EIP712("Reading token", "1") {
@@ -33,12 +33,6 @@ contract FixedReadingToken is ERC20 {
 
     function decimals() public view override returns (uint8) {
         return tokenDecimals;
-    }
-}
-
-contract PriceOnlyReadingToken {
-    function decimals() external pure returns (uint8) {
-        return 18;
     }
 }
 
@@ -86,7 +80,7 @@ contract MarketCapReaderTest is Test {
     }
 
     function testUnsupportedTokenStillHasPriceWithoutTotalSupply() public {
-        PriceOnlyReadingToken priceToken = new PriceOnlyReadingToken();
+        MetadataOnlyToken priceToken = new MetadataOnlyToken();
         MockBasePool pricePool = new MockBasePool(address(priceToken), address(pool.token1()));
         pricePool.write(0);
         BasePoolReader priceReader = new BasePoolReader(address(pricePool), address(priceToken), 30);
@@ -106,11 +100,11 @@ contract MarketCapReaderTest is Test {
         );
         vm.roll(515);
         vm.warp(1_030);
-        missing.priceReader().capture();
+        missing.i_priceReader().capture();
         vm.roll(516);
         vm.expectRevert(MarketCapReader.NoValidMarketCap.selector);
         missing.readMarketCap(515);
-        assertEq(missing.priceReader().read(515).price, 1e36);
+        assertEq(missing.i_priceReader().read(515).price, 1e36);
     }
 
     function testTimestampClockAndFaultySourcesRejectMarketCapOnly() public {

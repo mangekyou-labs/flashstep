@@ -3,7 +3,7 @@ pragma solidity ^0.8.24;
 
 import { Test } from "forge-std/Test.sol";
 import { BasePoolReader } from "../../contracts/readings/BasePoolReader.sol";
-import { MockBasePool, MockReadingToken } from "../mocks/MockBasePool.sol";
+import { MetadataOnlyToken, MockBasePool, MockReadingToken } from "../mocks/MockBasePool.sol";
 
 contract BasePoolReaderTest is Test {
     MockReadingToken internal token;
@@ -206,11 +206,5 @@ contract BasePoolReaderTest is Test {
         vm.warp(1_030);
         vm.roll(515);
         assertEq(priceReader.capture().price, 1e36);
-    }
-}
-
-contract MetadataOnlyToken {
-    function decimals() external pure returns (uint8) {
-        return 18;
     }
 }

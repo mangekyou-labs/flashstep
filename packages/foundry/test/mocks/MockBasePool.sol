@@ -17,6 +17,7 @@ contract MockBasePool is IObservationPool {
     address public immutable token1;
     Observation[] public observations;
     bool public missing;
+    mapping(uint256 => bool) public missingAtBlock;
 
     constructor(address token0_, address token1_) {
         token0 = token0_;
@@ -25,6 +26,11 @@ contract MockBasePool is IObservationPool {
 
     function setMissing(bool missing_) external {
         missing = missing_;
+    }
+
+    /// @notice Make observe() fail only while executing in `blockNumber`, e.g. a missed boundary capture.
+    function setMissingAtBlock(uint256 blockNumber, bool missing_) external {
+        missingAtBlock[blockNumber] = missing_;
     }
 
     function write(int24 tick) external {
@@ -43,7 +49,7 @@ contract MockBasePool is IObservationPool {
         view
         returns (int56[] memory cumulatives, uint160[] memory liquidities)
     {
-        require(!missing && observations.length != 0, "OLD");
+        require(!missing && !missingAtBlock[block.number] && observations.length != 0, "OLD");
         cumulatives = new int56[](secondsAgos.length);
         liquidities = new uint160[](secondsAgos.length);
         for (uint256 i; i < secondsAgos.length; ++i) {

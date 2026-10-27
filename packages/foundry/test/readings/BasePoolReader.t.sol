@@ -56,6 +56,19 @@ contract BasePoolReaderTest is Test {
         reader.read(515);
     }
 
+    function testOneBlocksMissingObservationLeavesOnlyThatBoundaryUncaptured() public {
+        pool.setMissingAtBlock(515, true);
+        vm.warp(1_030);
+        vm.roll(515);
+        vm.expectRevert(BasePoolReader.NoValidReading.selector);
+        reader.capture();
+        vm.warp(1_032);
+        vm.roll(516);
+        assertEq(reader.capture().price, 1e36);
+        vm.expectRevert(BasePoolReader.NoValidReading.selector);
+        reader.read(515); // A later capture never stands in for the missed boundary.
+    }
+
     function testInsufficientHistoryCannotProduceAReading() public {
         vm.warp(1_029);
         vm.roll(514);

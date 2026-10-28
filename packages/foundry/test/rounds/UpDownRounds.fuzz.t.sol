@@ -73,6 +73,43 @@ contract UpDownRoundsFuzzTest is RoundFixture {
         m.seedRound(1e16, 1e30 + 1, 10, 4);
     }
 
+    function testRejectsEveryUnsupportedOddDurationBeforeTrading() public {
+        // On two-second Base blocks, former (5,4) and (10,1) settings
+        // placed at least one exact endpoint between blocks.
+        for (uint32 duration = 1; duration <= 31; duration += 2) {
+            UpDownRounds m = new UpDownRounds(address(this), reader);
+            m.fund{ value: 1 ether }();
+            vm.expectRevert(UpDownRounds.InvalidConfiguration.selector);
+            m.seedRound(1 ether, 1 ether, duration, 4);
+            vm.expectRevert(UpDownRounds.InvalidConfiguration.selector);
+            m.seedRound(1 ether, 1 ether, 10, duration);
+            m.seedRound(1 ether, 1 ether, 6, 2);
+        }
+    }
+
+    function testEvenDurationBoundariesCaptureOnTwoSecondBlocks() public {
+        uint32[2] memory trading = [uint32(6), 30];
+        uint32[2] memory windows = [uint32(2), 30];
+        for (uint256 i; i < trading.length; ++i) {
+            for (uint256 j; j < windows.length; ++j) {
+                UpDownRounds m = new UpDownRounds(address(this), reader);
+                m.fund{ value: 1 ether }();
+                m.seedRound(1 ether, 1 ether, trading[i], windows[j]);
+                UpDownRounds.Round memory r = m.round(1);
+                uint256 simulatedTime = r.cutoff - trading[i];
+                uint256 simulatedBlock = block.number;
+                while (simulatedTime < r.windowEnd) {
+                    simulatedTime += 2;
+                    vm.warp(simulatedTime);
+                    vm.roll(++simulatedBlock);
+                    if (simulatedTime == r.cutoff || simulatedTime == r.windowEnd) m.captureBoundary(1);
+                }
+                m.settle(1);
+                assertEq(uint256(m.phase(1)), uint256(UpDownRounds.Phase.Settled));
+            }
+        }
+    }
+
     function testSeedBoundariesAndReserveLimit() public {
         uint256[4] memory accepted = [uint256(1e16), 1e16 + 1, 1e30 - 1, 1e30];
         for (uint256 i; i < accepted.length; ++i) {

@@ -131,7 +131,8 @@ contract BasePoolReaderFuzzTest is Test {
     }
 
     /// Reading the same pool from both sides gives reciprocal prices: P0 × P1 ≈ 1e72 up to flooring.
-    /// Each floor loses under one unit, so 1e72 × (1 − 1/P0 − 1/P1) ≤ P0 × P1 ≤ 1e72.
+    /// Both sides floor the same exact values P0' × P1' = 1e72, each losing under one unit, so
+    /// 1e72 − P0 − P1 − 1 < P0 × P1 ≤ 1e72.
     function testFuzzBothDirectionsAreReciprocalWithinFlooring(
         int256 tickSeed,
         uint256 decimals0Seed,
@@ -151,7 +152,9 @@ contract BasePoolReaderFuzzTest is Test {
         if (!ok0 || !ok1) return;
         uint256 product = Math.mulDiv(price0, price1, 1e36); // P0 × P1 / 1e36, floored.
         assertLe(product, 1e36);
-        assertGe(product + 1e36 / price0 + 1e36 / price1 + 1, 1e36);
+        uint256 deficit = price0 + price1 + 1; // P0 × P1 ≤ 1e72 keeps this sum far below uint256.
+        uint256 floor = deficit < 1e72 ? (1e72 - deficit) / 1e36 : 0;
+        assertGe(product, floor);
     }
 
     function testDecimalsAboveEighteenAreRejected() public {

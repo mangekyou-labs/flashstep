@@ -64,6 +64,8 @@ contract UpDownRounds is Ownable, ReentrancyGuard {
     error NotSettled();
     error TransferFailed();
 
+    /// @notice Supported Base block cadence; durations must preserve exact boundary timestamps.
+    uint256 public constant BLOCK_INTERVAL = 2;
     uint256 public constant SHARE_SCALE = 1e18;
     uint256 public constant PAYOUT = 0.01 ether;
     uint256 public constant MIN_SEED = 0.01 ether;
@@ -99,6 +101,7 @@ contract UpDownRounds is Ownable, ReentrancyGuard {
         if (
             seed < MIN_SEED || seed > MAX_SEED || stakeCap == 0 || stakeCap > MAX_STAKE_CAP || tradingSeconds < 5
                 || tradingSeconds > 30 || windowSeconds == 0 || windowSeconds > 30
+                || tradingSeconds % BLOCK_INTERVAL != 0 || windowSeconds % BLOCK_INTERVAL != 0
         ) {
             revert InvalidConfiguration();
         }

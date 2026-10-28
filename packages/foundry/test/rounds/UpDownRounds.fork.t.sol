@@ -7,8 +7,10 @@ import { BasePoolReader } from "../../contracts/readings/BasePoolReader.sol";
 contract UpDownRoundsForkTest is Test {
     function testRoundSettlesFromRealPinnedBasePool() public {
         string memory rpc = vm.envOr("BASE_RPC_URL", string(""));
-        if (bytes(rpc).length == 0) vm.skip(true);
-        return;
+        if (bytes(rpc).length == 0) {
+            vm.skip(true);
+            return;
+        }
         vm.createSelectFork(rpc, 35_000_000);
         BasePoolReader reader = new BasePoolReader(
             0xd0b53D9277642d899DF5C87A3966A349A798F224, 0x4200000000000000000000000000000000000006, 30

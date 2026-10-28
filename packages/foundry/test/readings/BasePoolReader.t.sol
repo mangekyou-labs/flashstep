@@ -167,22 +167,29 @@ contract BasePoolReaderTest is Test {
         assertApproxEqRel(reverse.capture().price, 1e36, 0.0001 ether);
     }
 
-    function testMinimumLookbackIsMoreThanOneTwoSecondBlock() public {
+    function testLookbackOfThreeSecondsIsRejected() public {
+        // Three seconds is the nearest value below MIN_LOOKBACK: at most one full 2-second Base block.
         vm.expectRevert(BasePoolReader.InvalidConfiguration.selector);
-        new BasePoolReader(address(pool), address(token), 2);
+        new BasePoolReader(address(pool), address(token), 3);
+    }
+
+    function testLookbackOfFourSecondsSpansMoreThanOneBlock() public {
         BasePoolReader shortest = new BasePoolReader(address(pool), address(token), 4);
         vm.warp(1_004);
         vm.roll(502);
         assertEq(shortest.capture().price, 1e36);
     }
 
-    function testLookbackCeilingIsSixtySeconds() public {
-        vm.expectRevert(BasePoolReader.InvalidConfiguration.selector);
-        new BasePoolReader(address(pool), address(token), 61);
+    function testLookbackOfSixtySecondsIsAccepted() public {
         BasePoolReader longest = new BasePoolReader(address(pool), address(token), 60);
         vm.warp(1_060);
         vm.roll(530);
         assertEq(longest.capture().price, 1e36);
+    }
+
+    function testLookbackOfSixtyOneSecondsIsRejected() public {
+        vm.expectRevert(BasePoolReader.InvalidConfiguration.selector);
+        new BasePoolReader(address(pool), address(token), 61);
     }
 
     function testRejectsTokenOutsideThePool() public {

@@ -25,8 +25,6 @@ The added Base fork tests pin block 35,000,000, intentionally miss the scheduled
 
 Additional security regressions cover rejected claim-triggered refunds, independent recipient progress, rejected payer withdrawals preserving credits, zeroed credits during payment, blocked withdrawal reentry, and once-only payer payment.
 
-Final scoped command/results are recorded below after validation.
-
 Final scoped validation:
 
 ```sh
@@ -35,4 +33,19 @@ FOUNDRY_INVARIANT_FAIL_ON_REVERT=true BASE_RPC_URL=https://mainnet.base.org \
 forge test --match-path 'test/{rounds,threshold}/*' -vv
 ```
 
-Result: **95 passed, zero failed, zero skipped**, including all four real Base fork tests and both handler suites. The strict handlers reported zero unexpected reverts. `forge fmt --check` and `git diff --check` also pass. Root integration runs the combined non-challenge suite and static analysis after merge; no deployment was performed.
+Result: **95 passed, zero failed, zero skipped**, including all four real Base fork tests and both handler suites. The strict handlers reported zero unexpected reverts. `forge fmt --check` and `git diff --check` also pass. No deployment was performed.
+
+
+Integration validation:
+
+```sh
+FOUNDRY_INVARIANT_RUNS=128 FOUNDRY_INVARIANT_DEPTH=100 \
+FOUNDRY_INVARIANT_FAIL_ON_REVERT=true BASE_RPC_URL=https://mainnet.base.org \
+forge test --no-match-path 'test/PredictionMarket.t.sol' -vv
+```
+
+Result: **137 passed across 23 suites, zero failed, zero skipped**. Each strict handler executed 12,800 calls with zero unexpected reverts or discards. The unfinished original challenge suite is excluded. Formatting and diff whitespace checks passed.
+
+Slither scanned 25 contracts with 102 detectors and reported 154 results. Triage found no actionable new finding: the high-severity report is OpenZeppelin's intentional XOR in the modular inverse seed; medium reports concern intentional integer rounding, enum/sentinel and endpoint equality, or unchanged reader/library/challenge code. Timeout comparisons are intentional and covered at each boundary. Low-level refund payments check success and use checks/effects/interactions and reentrancy protection. Existing challenge token shadowing and zero-address reports are outside this change. This triage is not a security audit. Runtime bytecode sizes are 11,246 bytes for UpDownRounds and 10,617 bytes for ThresholdPots.
+
+Independent Standards and Spec reviews against integration base `005edeb4e87684e1a0c3875791b9858a6b042a59` both reported no findings. The Standards review checked documented repository conventions and material code smells; the Spec review checked issue #6 and its parent requirements, including payer recovery and custody equalities.

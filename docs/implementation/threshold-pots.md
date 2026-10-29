@@ -58,3 +58,5 @@ FOUNDRY_INVARIANT_RUNS=128 FOUNDRY_INVARIANT_DEPTH=100 FOUNDRY_INVARIANT_FAIL_ON
 ```
 
 All combined invariant properties ran 128 × 100 calls with zero reverts. The Threshold handler's 12,800 calls comprised advance 2,131; claim 2,170; settle 2,143; stake 2,115; dust withdrawal 2,095; funding withdrawal 2,146, with zero discards. The unchanged original challenge skeleton is excluded by this explicit command; these results do not claim that unrestricted challenge tests pass. Final formatting and whitespace checks passed.
+
+The final scan of the corrected source reported **143 findings**: 1 high, 37 medium, 36 low, 67 informational and 2 optimization. Compared with the initial 142-finding scan, the additional low-severity timestamp-taint finding reaches the new `renounceOwnership` funding-balance check through scheduled materialization. This guard compares the actual uncommitted balance with zero; it does not make a timestamp-based payment decision. The final scan introduced no actionable new finding. Compiled deployed runtime is **9,853 bytes**, below the 24,576-byte EIP-170 limit.

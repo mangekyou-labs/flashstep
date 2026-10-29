@@ -2,12 +2,14 @@
 pragma solidity ^0.8.24;
 
 import { Test } from "forge-std/Test.sol";
+import { StakeTestBase } from "../stake/StakeTestBase.sol";
+import { StakeAsset } from "../../contracts/StakeAsset.sol";
 import { ThresholdPots } from "../../contracts/ThresholdPots.sol";
 import { BasePoolReader } from "../../contracts/readings/BasePoolReader.sol";
 import { MarketCapReader } from "../../contracts/readings/MarketCapReader.sol";
 import { MockBasePool, MockReadingToken } from "../mocks/MockBasePool.sol";
 
-contract ThresholdReceiver {
+contract ThresholdReceiver is StakeTestBase {
     ThresholdPots public market;
     bool public reject;
     bool public callbackSeen;
@@ -21,6 +23,11 @@ contract ThresholdReceiver {
 
     constructor(ThresholdPots market_) {
         market = market_;
+        _setStakeToken(market_.i_stakeToken());
+        if (address(stakeToken) != address(0)) {
+            stakeToken.setCallback(address(this));
+            _approve(address(this), address(market_));
+        }
     }
 
     function setReject(bool value) external {
@@ -29,10 +36,11 @@ contract ThresholdReceiver {
 
     function setMarket(ThresholdPots value) external {
         market = value;
+        _approve(address(this), address(value));
     }
 
-    function stake(uint256 roundId, ThresholdPots.Side side) external payable {
-        market.stake{ value: msg.value }(roundId, side);
+    function stake(uint256 roundId, ThresholdPots.Side side, uint256 amount) external payable {
+        market.stake{ value: _value(amount) }(roundId, side, amount);
     }
 
     function claim() external {
@@ -48,6 +56,10 @@ contract ThresholdReceiver {
     }
 
     receive() external payable {
+        onStakeReceived();
+    }
+
+    function onStakeReceived() public {
         if (reject) revert("recipient refuses ETH");
         callbackSeen = true;
         claimableDuringPayment = market.claimable(1, address(this));
@@ -64,13 +76,14 @@ contract ThresholdReceiver {
     }
 }
 
-contract ThresholdPotsSecurityTest is Test {
+contract ThresholdPotsSecurityTest is StakeTestBase {
     ThresholdPots market;
     BasePoolReader reader;
     MockBasePool pool;
     address alice = address(0xA11CE);
 
-    function setUp() public {
+    function setUp() public virtual {
+        _initStakeToken();
         vm.warp(100);
         vm.roll(10);
         MockReadingToken base = new MockReadingToken(18, 1e18);
@@ -78,10 +91,10 @@ contract ThresholdPotsSecurityTest is Test {
         pool = new MockBasePool(address(base), address(quote));
         pool.write(0);
         reader = new BasePoolReader(address(pool), address(base), 4);
-        market = new ThresholdPots(address(this), reader);
-        vm.deal(address(this), 100 ether);
-        vm.deal(alice, 10 ether);
-        market.fund{ value: 10 ether }();
+        market = _newThreshold(address(this), reader);
+        _deal(address(this), 100 ether);
+        _deal(alice, 10 ether);
+        market.fund{ value: _value(10 ether) }(10 ether);
         market.seedRound(
             ThresholdPots.CampaignSettings({
                 openingStake: 1,
@@ -108,10 +121,11 @@ contract ThresholdPotsSecurityTest is Test {
 
     function testClaimCallbackSeesConsumedPositionAndBlocksReentry() public {
         ThresholdReceiver receiver = new ThresholdReceiver(market);
-        receiver.stake{ value: 1 }(1, ThresholdPots.Side.Yes);
+        if (address(stakeToken) != address(0)) stakeToken.transfer(address(receiver), 1);
+        receiver.stake{ value: _value(1) }(1, ThresholdPots.Side.Yes, 1);
         finish();
         receiver.claim();
-        assertEq(address(receiver).balance, 1);
+        assertEq(_balance(address(receiver)), 1);
         assertTrue(receiver.callbackSeen());
         assertEq(receiver.claimableDuringPayment(), 0);
         assertTrue(receiver.claimReentryBlocked());
@@ -119,26 +133,28 @@ contract ThresholdPotsSecurityTest is Test {
         assertTrue(receiver.dustReentryBlocked());
         assertEq(market.claimable(1, address(receiver)), 0);
         receiver.claim();
-        assertEq(address(receiver).balance, 1);
+        assertEq(_balance(address(receiver)), 1);
     }
 
     function testRejectingWinnerRollsBackOnlyTheirClaim() public {
         ThresholdReceiver receiver = new ThresholdReceiver(market);
-        receiver.stake{ value: 1 }(1, ThresholdPots.Side.Yes);
+        if (address(stakeToken) != address(0)) stakeToken.transfer(address(receiver), 1);
+        receiver.stake{ value: _value(1) }(1, ThresholdPots.Side.Yes, 1);
         finish();
         receiver.setReject(true);
-        vm.expectRevert(ThresholdPots.TransferFailed.selector);
+        if (address(stakeToken) == address(0)) vm.expectRevert(StakeAsset.TransferFailed.selector);
+        else vm.expectRevert();
         receiver.claim();
         assertEq(market.claimable(1, address(receiver)), 1);
         assertFalse(market.positionOf(1, address(receiver)).claimed);
-        assertEq(address(market).balance, 10 ether + 1);
-        uint256 before = address(this).balance;
+        assertEq(_balance(address(market)), 10 ether + 1);
+        uint256 before = _balance(address(this));
         market.claim(1);
-        assertEq(address(this).balance - before, 1);
+        assertEq(_balance(address(this)) - before, 1);
         assertEq(market.claimable(1, address(receiver)), 1);
         receiver.setReject(false);
         receiver.claim();
-        assertEq(address(receiver).balance, 1);
+        assertEq(_balance(address(receiver)), 1);
         assertEq(market.dustCredit(address(this)), 1);
     }
 
@@ -146,16 +162,17 @@ contract ThresholdPotsSecurityTest is Test {
         ThresholdReceiver receiver = new ThresholdReceiver(market);
         market.transferOwnership(address(receiver));
         uint256 funding = market.fundingBalance();
-        uint256 held = address(market).balance;
+        uint256 held = _balance(address(market));
         receiver.setReject(true);
-        vm.expectRevert(ThresholdPots.TransferFailed.selector);
+        if (address(stakeToken) == address(0)) vm.expectRevert(StakeAsset.TransferFailed.selector);
+        else vm.expectRevert();
         receiver.withdrawFunding(3);
         assertEq(market.fundingBalance(), funding);
-        assertEq(address(market).balance, held);
+        assertEq(_balance(address(market)), held);
         receiver.setReject(false);
         receiver.withdrawFunding(3);
         assertEq(receiver.fundingDuringPayment(), funding - 3);
-        assertEq(address(receiver).balance, 3);
+        assertEq(_balance(address(receiver)), 3);
         assertTrue(receiver.claimReentryBlocked());
         assertTrue(receiver.settleReentryBlocked());
         assertTrue(receiver.fundingReentryBlocked());
@@ -165,11 +182,11 @@ contract ThresholdPotsSecurityTest is Test {
 
     function testOwnershipCannotRedirectOpeningStakesOrDustAndDustWithdrawalIsAtomic() public {
         ThresholdReceiver payer = new ThresholdReceiver(market);
-        market = new ThresholdPots(address(payer), reader);
+        market = _newThreshold(address(payer), reader);
         payer.setMarket(market);
-        vm.deal(address(payer), 10);
+        _deal(address(payer), 10);
         vm.prank(address(payer));
-        market.fund{ value: 2 }();
+        market.fund{ value: _value(2) }(2);
         vm.prank(address(payer));
         market.seedRound(
             ThresholdPots.CampaignSettings({
@@ -185,7 +202,7 @@ contract ThresholdPotsSecurityTest is Test {
             })
         );
         vm.prank(alice);
-        market.stake{ value: 1 }(1, ThresholdPots.Side.Yes);
+        market.stake{ value: _value(1) }(1, ThresholdPots.Side.Yes, 1);
         vm.prank(address(payer));
         market.transferOwnership(alice);
         finish();
@@ -202,11 +219,12 @@ contract ThresholdPotsSecurityTest is Test {
         vm.prank(alice);
         assertEq(market.withdrawDust(), 0);
         payer.setReject(true);
-        vm.expectRevert(ThresholdPots.TransferFailed.selector);
+        if (address(stakeToken) == address(0)) vm.expectRevert(StakeAsset.TransferFailed.selector);
+        else vm.expectRevert();
         payer.withdrawDust();
         assertEq(market.dustCredit(address(payer)), 1);
         assertEq(market.totalDustCredit(), 1);
-        assertEq(address(market).balance, 1);
+        assertEq(_balance(address(market)), 1);
         payer.setReject(false);
         payer.withdrawDust();
         assertEq(payer.dustDuringPayment(), 0);
@@ -214,8 +232,14 @@ contract ThresholdPotsSecurityTest is Test {
         assertTrue(payer.settleReentryBlocked());
         assertTrue(payer.dustReentryBlocked());
         assertEq(market.totalDustCredit(), 0);
-        assertEq(address(market).balance, 0);
+        assertEq(_balance(address(market)), 0);
     }
 
     receive() external payable { }
+}
+
+contract ThresholdPotsSecurityTestERC20 is ThresholdPotsSecurityTest {
+    function usesToken() internal pure override returns (bool) {
+        return true;
+    }
 }

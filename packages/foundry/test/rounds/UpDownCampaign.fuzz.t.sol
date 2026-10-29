@@ -19,12 +19,12 @@ contract UpDownCampaignFuzzTest is RoundFixture {
         assertEq(market.currentRound(), 2);
         uint256 cost = market.quote(2, UpDownRounds.Side.Up, 1);
         vm.prank(alice);
-        market.buy{ value: cost }(2, UpDownRounds.Side.Up, 1, cost);
+        market.buy{ value: _value(cost) }(2, UpDownRounds.Side.Up, 1, cost);
         // The one-wei minimum cap accepts one dust purchase, and cumulative buys cannot exceed it.
         if (cap == 1) {
             vm.expectRevert(UpDownRounds.StakeCapExceeded.selector);
             vm.prank(alice);
-            market.buy{ value: cost }(2, UpDownRounds.Side.Up, 1, cost);
+            market.buy{ value: _value(cost) }(2, UpDownRounds.Side.Up, 1, cost);
         }
         vm.warp(110 + trading - 1);
         assertEq(uint256(market.phase(2)), uint256(UpDownRounds.Phase.Trading));
@@ -52,8 +52,8 @@ contract UpDownCampaignFuzzTest is RoundFixture {
     }
 
     function testFuzzTiePaysCumulativeBuysMinusProceedsFlooredOnce(bytes32 entropy, uint256 rawActions) public {
-        market = new UpDownRounds(address(this), reader);
-        market.fund{ value: 10 ether }();
+        market = _newUpDown(address(this), reader);
+        market.fund{ value: _value(10 ether) }(10 ether);
         market.seedRound(1 ether, 1e30, 10, 4);
         uint256 actions = bound(rawActions, 2, 32);
         uint256[2] memory paid;
@@ -70,22 +70,22 @@ contract UpDownCampaignFuzzTest is RoundFixture {
                 if (reserve == 0) continue;
                 uint256 shares = bound(random >> 3, 1, reserve < 20e18 ? reserve : 20e18);
                 uint256 cost = market.quote(1, side, shares);
-                uint256 beforeBalance = player.balance;
+                uint256 beforeBalance = _balance(player);
                 vm.prank(player);
-                market.buy{ value: cost }(1, side, shares, cost);
-                paid[index] += beforeBalance - player.balance;
+                market.buy{ value: _value(cost) }(1, side, shares, cost);
+                paid[index] += beforeBalance - _balance(player);
             } else {
                 uint256 owned = side == UpDownRounds.Side.Up ? position.up : position.down;
                 if (owned == 0) continue;
                 uint256 shares = bound(random >> 3, 1, owned);
                 uint256 proceeds = market.quoteSell(1, side, shares);
-                uint256 beforeBalance = player.balance;
+                uint256 beforeBalance = _balance(player);
                 vm.prank(player);
                 try market.sell(1, side, shares, proceeds) {
-                    received[index] += player.balance - beforeBalance;
+                    received[index] += _balance(player) - beforeBalance;
                 } catch (bytes memory reason) {
                     assertEq(bytes4(reason), UpDownRounds.InsufficientReserve.selector);
-                    assertEq(player.balance, beforeBalance);
+                    assertEq(_balance(player), beforeBalance);
                 }
             }
         }
@@ -93,11 +93,17 @@ contract UpDownCampaignFuzzTest is RoundFixture {
         for (uint256 i; i < 2; ++i) {
             address player = i == 0 ? alice : bob;
             uint256 expected = paid[i] > received[i] ? paid[i] - received[i] : 0;
-            uint256 beforeBalance = player.balance;
+            uint256 beforeBalance = _balance(player);
             vm.prank(player);
             market.claim(1);
-            assertEq(player.balance - beforeBalance, expected);
+            assertEq(_balance(player) - beforeBalance, expected);
             assertEq(market.claimable(1, player), 0);
         }
+    }
+}
+
+contract UpDownCampaignFuzzTestERC20 is UpDownCampaignFuzzTest {
+    function usesToken() internal pure override returns (bool) {
+        return true;
     }
 }

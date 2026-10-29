@@ -1,13 +1,15 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 import { Test } from "forge-std/Test.sol";
+import { StakeTestBase } from "../stake/StakeTestBase.sol";
+import { StakeAsset } from "../../contracts/StakeAsset.sol";
 import { StdInvariant } from "forge-std/StdInvariant.sol";
 import { ThresholdPots } from "../../contracts/ThresholdPots.sol";
 import { BasePoolReader } from "../../contracts/readings/BasePoolReader.sol";
 import { MarketCapReader } from "../../contracts/readings/MarketCapReader.sol";
 import { MockBasePool, MockReadingToken } from "../mocks/MockBasePool.sol";
 
-contract ThresholdHandler is Test {
+contract ThresholdHandler is StakeTestBase {
     uint256 constant CAP = 1e12;
     uint256 constant THRESHOLD = 1e36 + 1;
     ThresholdPots public market;
@@ -31,7 +33,8 @@ contract ThresholdHandler is Test {
     bool public missingReadings;
     uint256 public refunds;
 
-    constructor() {
+    constructor(address asset) {
+        _setStakeToken(asset);
         vm.warp(100);
         vm.roll(10);
         MockReadingToken base = new MockReadingToken(18, 1e18);
@@ -39,10 +42,10 @@ contract ThresholdHandler is Test {
         pool = new MockBasePool(address(base), address(quoteToken));
         pool.write(0);
         reader = new BasePoolReader(address(pool), address(base), 4);
-        market = new ThresholdPots(address(this), reader);
+        market = _newThreshold(address(this), reader);
         actors = [address(this), address(0xA11CE), address(0xB0B), address(0xCA11)];
-        vm.deal(address(this), 84);
-        market.fund{ value: 84 }();
+        _deal(address(this), 84);
+        market.fund{ value: _value(84) }(84);
         market.seedRound(
             ThresholdPots.CampaignSettings(
                 7, CAP, THRESHOLD, 10, 14, 160, ThresholdPots.Metric.Price, reader, MarketCapReader(address(0))
@@ -68,9 +71,9 @@ contract ThresholdHandler is Test {
 
     function deposit(uint256 id, uint256 actor, uint256 amount, bool side) internal {
         address player = actors[actor];
-        vm.deal(player, player.balance + amount);
+        _deal(player, _balance(player) + amount);
         if (actor != 0) vm.prank(player);
-        market.stake{ value: amount }(id, side ? ThresholdPots.Side.Yes : ThresholdPots.Side.No);
+        market.stake{ value: _value(amount) }(id, side ? ThresholdPots.Side.Yes : ThresholdPots.Side.No, amount);
         track(id);
         if (side) yes[id][actor] += amount;
         else no[id][actor] += amount;
@@ -146,10 +149,10 @@ contract ThresholdHandler is Test {
         if (outcome[id] == ThresholdPots.Result.None) return;
         uint256 expected = claimed[id][actor] ? 0 : entitlement(id, actor);
         assertEq(market.claimable(id, actors[actor]), expected);
-        uint256 beforeBalance = actors[actor].balance;
+        uint256 beforeBalance = _balance(actors[actor]);
         if (actor != 0) vm.prank(actors[actor]);
         assertEq(market.claim(id), expected);
-        assertEq(actors[actor].balance - beforeBalance, expected);
+        assertEq(_balance(actors[actor]) - beforeBalance, expected);
         claimed[id][actor] = true;
         paid += expected;
         if (expected != 0) ++claims;
@@ -159,16 +162,16 @@ contract ThresholdHandler is Test {
         uint256 available = 84 - rounds * 14 - fundingWithdrawn;
         if (available == 0) return;
         uint256 amount = bound(rawAmount, 1, available);
-        uint256 beforeBalance = address(this).balance;
+        uint256 beforeBalance = _balance(address(this));
         market.withdrawFunding(amount);
-        assertEq(address(this).balance - beforeBalance, amount);
+        assertEq(_balance(address(this)) - beforeBalance, amount);
         fundingWithdrawn += amount;
     }
 
     function withdrawDust() public {
-        uint256 beforeBalance = address(this).balance;
+        uint256 beforeBalance = _balance(address(this));
         uint256 amount = market.withdrawDust();
-        assertEq(address(this).balance - beforeBalance, amount);
+        assertEq(_balance(address(this)) - beforeBalance, amount);
         dustWithdrawn += amount;
     }
 
@@ -205,11 +208,11 @@ contract ThresholdHandler is Test {
         }
         uint256 funding = 84 - rounds * 14 - fundingWithdrawn;
         assertEq(market.fundingBalance(), funding);
-        assertEq(address(market).balance, funding + pending + unpaid + dust - dustWithdrawn);
-        assertEq(address(market).balance, 84 + added - paid - fundingWithdrawn - dustWithdrawn);
+        assertEq(_balance(address(market)), funding + pending + unpaid + dust - dustWithdrawn);
+        assertEq(_balance(address(market)), 84 + added - paid - fundingWithdrawn - dustWithdrawn);
         if (allSettled) {
             assertEq(funding + pending, 0);
-            assertEq(address(market).balance, unpaid + dust - dustWithdrawn);
+            assertEq(_balance(address(market)), unpaid + dust - dustWithdrawn);
         }
     }
 
@@ -224,7 +227,7 @@ contract ThresholdHandler is Test {
             }
         }
         withdrawDust();
-        assertEq(address(market).balance, 0);
+        assertEq(_balance(address(market)), 0);
         assertGe(stakes, 4);
         assertGe(settlements, 2);
         assertGe(claims, 2);
@@ -233,11 +236,12 @@ contract ThresholdHandler is Test {
     receive() external payable { }
 }
 
-contract ThresholdPotsInvariantTest is StdInvariant, Test {
+contract ThresholdPotsInvariantTest is StdInvariant, StakeTestBase {
     ThresholdHandler handler;
 
-    function setUp() public {
-        handler = new ThresholdHandler();
+    function setUp() public virtual {
+        _initStakeToken();
+        handler = new ThresholdHandler(address(stakeToken));
         bytes4[] memory selectors = new bytes4[](8);
         selectors[0] = handler.stake.selector;
         selectors[1] = handler.advance.selector;
@@ -257,5 +261,11 @@ contract ThresholdPotsInvariantTest is StdInvariant, Test {
 
     function afterInvariant() public {
         handler.finish();
+    }
+}
+
+contract ThresholdPotsInvariantTestERC20 is ThresholdPotsInvariantTest {
+    function usesToken() internal pure override returns (bool) {
+        return true;
     }
 }

@@ -24,10 +24,10 @@ contract ThresholdRefundsTest is ThresholdFixture {
         vm.warp(174);
         vm.roll(47);
         market.settle(1);
-        uint256 beforeBalance = alice.balance;
+        uint256 beforeBalance = _balance(alice);
         vm.prank(alice);
         assertEq(market.claim(1), 3 ether);
-        assertEq(alice.balance - beforeBalance, 3 ether);
+        assertEq(_balance(alice) - beforeBalance, 3 ether);
         assertEq(market.claim(1), 2 ether);
     }
 
@@ -86,9 +86,9 @@ contract ThresholdRefundsTest is ThresholdFixture {
         stakeAs(alice, 1, ThresholdPots.Side.Yes, 3 ether);
         market.transferOwnership(bob);
         vm.warp(114 + 3650 days);
-        uint256 beforeBalance = address(this).balance;
+        uint256 beforeBalance = _balance(address(this));
         assertEq(market.claim(1), 2 ether);
-        assertEq(address(this).balance - beforeBalance, 2 ether);
+        assertEq(_balance(address(this)) - beforeBalance, 2 ether);
         assertEq(market.claim(1), 0);
         vm.prank(alice);
         assertEq(market.claim(1), 3 ether);
@@ -96,7 +96,7 @@ contract ThresholdRefundsTest is ThresholdFixture {
         assertEq(market.claim(1), 0);
         vm.prank(bob);
         assertEq(market.claim(1), 0);
-        assertEq(address(market).balance, 8 ether);
+        assertEq(_balance(address(market)), 8 ether);
     }
 
     function testUnavailableHistoricalSupplyRefundsEvenWithCapturedPrice() public {
@@ -120,7 +120,7 @@ contract ThresholdRefundsTest is ThresholdFixture {
     function testExpiredIdleSlotsCannotConsumeOpeningFunding() public {
         market.seedRound(settings());
         vm.warp(1000);
-        uint256 held = address(market).balance;
+        uint256 held = _balance(address(market));
         for (uint256 id = 2; id <= 20; ++id) {
             assertEq(market.claimable(id, address(this)), 0);
             assertEq(market.claim(id), 0);
@@ -128,6 +128,12 @@ contract ThresholdRefundsTest is ThresholdFixture {
             market.settle(id);
         }
         assertEq(market.fundingBalance(), 8 ether);
-        assertEq(address(market).balance, held);
+        assertEq(_balance(address(market)), held);
+    }
+}
+
+contract ThresholdRefundsTestERC20 is ThresholdRefundsTest {
+    function usesToken() internal pure override returns (bool) {
+        return true;
     }
 }

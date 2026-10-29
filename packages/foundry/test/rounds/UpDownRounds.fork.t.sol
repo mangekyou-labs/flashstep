@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 import { Test } from "forge-std/Test.sol";
+import { StakeTestBase } from "../stake/StakeTestBase.sol";
+import { StakeAsset } from "../../contracts/StakeAsset.sol";
 import { UpDownRounds } from "../../contracts/UpDownRounds.sol";
 import { BasePoolReader } from "../../contracts/readings/BasePoolReader.sol";
 
-contract UpDownRoundsForkTest is Test {
+contract UpDownRoundsForkTest is StakeTestBase {
     function testMissedRealPoolBoundaryRefundsWithoutUsingLaterReading() public {
         string memory rpc = vm.envOr("BASE_RPC_URL", string(""));
         if (bytes(rpc).length == 0) {
@@ -12,19 +14,21 @@ contract UpDownRoundsForkTest is Test {
             return;
         }
         vm.createSelectFork(rpc, 35_000_000);
+        _initStakeToken();
+        if (address(stakeToken) != address(0)) vm.makePersistent(address(stakeToken));
         BasePoolReader reader = new BasePoolReader(
             0xd0b53D9277642d899DF5C87A3966A349A798F224, 0x4200000000000000000000000000000000000006, 30
         );
-        UpDownRounds market = new UpDownRounds(address(this), reader);
+        UpDownRounds market = _newUpDown(address(this), reader);
         vm.makePersistent(address(market), address(reader));
-        vm.deal(address(this), 1 ether);
-        market.fund{ value: 1 ether }();
+        _deal(address(this), 1 ether);
+        market.fund{ value: _value(1 ether) }(1 ether);
         market.seedRound(1 ether, 1 ether, 10, 4);
         address player = address(0xA11CE);
         uint256 cost = market.quote(1, UpDownRounds.Side.Down, 1e18);
-        vm.deal(player, cost);
+        _deal(player, cost);
         vm.prank(player);
-        market.buy{ value: cost }(1, UpDownRounds.Side.Down, 1e18, cost);
+        market.buy{ value: _value(cost) }(1, UpDownRounds.Side.Down, 1e18, cost);
         vm.rollFork(35_000_005);
         market.captureBoundary(1);
         // Nobody captures at block 35,000,007; a later real TWAP cannot replace it.
@@ -34,9 +38,9 @@ contract UpDownRoundsForkTest is Test {
         reader.read(35_000_007);
         vm.prank(player);
         assertEq(market.claim(1), cost);
-        assertEq(player.balance, cost);
+        assertEq(_balance(player), cost);
         assertEq(market.withdrawRefund(), 1 ether);
-        assertEq(address(market).balance, 0);
+        assertEq(_balance(address(market)), 0);
     }
 
     function testRoundSettlesFromRealPinnedBasePool() public {
@@ -46,19 +50,21 @@ contract UpDownRoundsForkTest is Test {
             return;
         }
         vm.createSelectFork(rpc, 35_000_000);
+        _initStakeToken();
+        if (address(stakeToken) != address(0)) vm.makePersistent(address(stakeToken));
         BasePoolReader reader = new BasePoolReader(
             0xd0b53D9277642d899DF5C87A3966A349A798F224, 0x4200000000000000000000000000000000000006, 30
         );
-        UpDownRounds market = new UpDownRounds(address(this), reader);
+        UpDownRounds market = _newUpDown(address(this), reader);
         vm.makePersistent(address(market), address(reader));
-        vm.deal(address(this), 1 ether);
-        market.fund{ value: 1 ether }();
+        _deal(address(this), 1 ether);
+        market.fund{ value: _value(1 ether) }(1 ether);
         market.seedRound(1 ether, 1 ether, 10, 4);
         address player = address(0xA11CE);
         uint256 cost = market.quote(1, UpDownRounds.Side.Up, 1e18);
-        vm.deal(player, cost);
+        _deal(player, cost);
         vm.prank(player);
-        market.buy{ value: cost }(1, UpDownRounds.Side.Up, 1e18, cost);
+        market.buy{ value: _value(cost) }(1, UpDownRounds.Side.Up, 1e18, cost);
         vm.rollFork(35_000_005);
         market.captureBoundary(1);
         vm.rollFork(35_000_007);
@@ -77,8 +83,14 @@ contract UpDownRoundsForkTest is Test {
             : r.endReading.price == r.startReading.price ? cost : 0;
         vm.prank(player);
         market.claim(1);
-        assertEq(player.balance, expected);
-        assertEq(address(market).balance + player.balance, 1 ether + cost);
+        assertEq(_balance(player), expected);
+        assertEq(_balance(address(market)) + _balance(player), 1 ether + cost);
     }
     receive() external payable { }
+}
+
+contract UpDownRoundsForkTestERC20 is UpDownRoundsForkTest {
+    function usesToken() internal pure override returns (bool) {
+        return true;
+    }
 }

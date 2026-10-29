@@ -1,20 +1,25 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 import { ClaimReceiver } from "./UpDownRounds.security.t.sol";
+import { StakeAsset } from "../../contracts/StakeAsset.sol";
+import { StakeTestBase } from "../stake/StakeTestBase.sol";
 import { RoundFixture } from "./RoundFixture.sol";
 import { UpDownRounds } from "../../contracts/UpDownRounds.sol";
 import { BasePoolReader } from "../../contracts/readings/BasePoolReader.sol";
 
-contract RefundPayer {
+contract RefundPayer is StakeTestBase {
     UpDownRounds public market;
     bool public reject;
     bool public reentryBlocked;
     uint256 public creditDuringPayment;
 
-    constructor(BasePoolReader reader) payable {
-        market = new UpDownRounds(address(this), reader);
-        market.fund{ value: msg.value }();
-        market.seedRound(msg.value, msg.value, 10, 4);
+    constructor(BasePoolReader reader, address asset, uint256 amount) payable {
+        _setStakeToken(asset);
+        market = _newUpDown(address(this), reader);
+        _deal(address(this), amount);
+        market.fund{ value: _value(amount) }(amount);
+        market.seedRound(amount, amount, 10, 4);
+        if (asset != address(0)) stakeToken.setCallback(address(this));
     }
 
     function setReject(bool value) external {
@@ -26,6 +31,10 @@ contract RefundPayer {
     }
 
     receive() external payable {
+        onStakeReceived();
+    }
+
+    function onStakeReceived() public {
         if (reject) revert();
         creditDuringPayment = market.refundCredit(address(this));
         try market.withdrawRefund() { }
@@ -59,10 +68,10 @@ contract UpDownRefundsTest is RoundFixture {
         vm.warp(174);
         vm.roll(47);
         market.settle(1);
-        uint256 beforeBalance = alice.balance;
+        uint256 beforeBalance = _balance(alice);
         vm.prank(alice);
         assertEq(market.claim(1), paid);
-        assertEq(alice.balance - beforeBalance, paid);
+        assertEq(_balance(alice) - beforeBalance, paid);
     }
 
     function testMissingReadingDeadlineOneSecondBeforeExactlyAndAfter() public {
@@ -128,10 +137,10 @@ contract UpDownRefundsTest is RoundFixture {
         market.sell(1, UpDownRounds.Side.Up, 10e18, proceeds);
         market.transferOwnership(bob);
         vm.warp(174);
-        uint256 beforeBalance = alice.balance;
+        uint256 beforeBalance = _balance(alice);
         vm.prank(alice);
         assertEq(market.claim(1), paid - proceeds);
-        assertEq(alice.balance - beforeBalance, paid - proceeds);
+        assertEq(_balance(alice) - beforeBalance, paid - proceeds);
         vm.prank(alice);
         assertEq(market.claim(1), 0);
         vm.warp(174 + 3650 days);
@@ -139,7 +148,7 @@ contract UpDownRefundsTest is RoundFixture {
         assertEq(market.withdrawRefund(), 0);
         vm.prank(bob);
         assertEq(market.withdrawRefund(), 0);
-        assertEq(address(market).balance, 9 ether);
+        assertEq(_balance(address(market)), 9 ether);
     }
 
     function testRenouncedPayerCanWithdrawSeedRefundForever() public {
@@ -152,7 +161,7 @@ contract UpDownRefundsTest is RoundFixture {
         assertEq(market.withdrawRefund(), 1 ether);
         vm.prank(alice);
         market.claim(1);
-        assertEq(address(market).balance, 0);
+        assertEq(_balance(address(market)), 0);
     }
 
     function testExpirySettlementRefundsInsteadOfPayingKnownWinner() public {
@@ -165,7 +174,7 @@ contract UpDownRefundsTest is RoundFixture {
 
     function testExpiredIdleSlotsCannotConsumeSeedFunding() public {
         vm.warp(1000);
-        uint256 held = address(market).balance;
+        uint256 held = _balance(address(market));
         for (uint256 id = 2; id <= 20; ++id) {
             assertEq(market.claim(id), 0);
             vm.expectRevert(UpDownRounds.UnknownRound.selector);
@@ -173,17 +182,19 @@ contract UpDownRefundsTest is RoundFixture {
         }
         assertEq(market.fundingBalance(), 9 ether);
         assertEq(market.totalRefundCredit(), 0);
-        assertEq(address(market).balance, held);
+        assertEq(_balance(address(market)), held);
     }
 
     function testRejectedAutoRefundRollsBackAndOtherPlayersCanClaim() public {
         ClaimReceiver receiver = new ClaimReceiver(market);
         uint256 cost = market.quote(1, UpDownRounds.Side.Up, 1e18);
-        receiver.buy{ value: cost }();
+        if (address(stakeToken) != address(0)) stakeToken.transfer(address(receiver), cost);
+        receiver.buy{ value: _value(cost) }(cost);
         uint256 alicePaid = buyAs(alice, UpDownRounds.Side.Down, 1e18);
         vm.warp(174);
         receiver.setReject(true);
-        vm.expectRevert(UpDownRounds.TransferFailed.selector);
+        if (address(stakeToken) == address(0)) vm.expectRevert(StakeAsset.TransferFailed.selector);
+        else vm.expectRevert();
         receiver.claim();
         assertEq(uint256(market.round(1).result), uint256(UpDownRounds.Result.None));
         assertEq(market.totalRefundCredit(), 0);
@@ -192,32 +203,39 @@ contract UpDownRefundsTest is RoundFixture {
         assertEq(market.claim(1), alicePaid);
         receiver.setReject(false);
         receiver.claim();
-        assertEq(address(receiver).balance, cost);
+        assertEq(_balance(address(receiver)), cost);
         assertTrue(receiver.reentryBlocked());
         assertTrue(receiver.settleBlocked());
         assertEq(receiver.claimableDuringPayment(), 0);
     }
 
     function testPayerRefundRejectRollsBackAndPaymentClearsCreditBeforeReentry() public {
-        RefundPayer payer = new RefundPayer{ value: 1 ether }(reader);
+        RefundPayer payer = new RefundPayer{ value: _value(1 ether) }(reader, address(stakeToken), 1 ether);
         UpDownRounds other = payer.market();
         vm.warp(174);
         other.settle(1);
         payer.setReject(true);
-        vm.expectRevert(UpDownRounds.TransferFailed.selector);
+        if (address(stakeToken) == address(0)) vm.expectRevert(StakeAsset.TransferFailed.selector);
+        else vm.expectRevert();
         payer.withdraw();
         assertEq(other.refundCredit(address(payer)), 1 ether);
         assertEq(other.totalRefundCredit(), 1 ether);
         payer.setReject(false);
         payer.withdraw();
-        assertEq(address(payer).balance, 1 ether);
+        assertEq(_balance(address(payer)), 1 ether);
         assertTrue(payer.reentryBlocked());
         assertEq(payer.creditDuringPayment(), 0);
         assertEq(other.totalRefundCredit(), 0);
-        assertEq(address(other).balance, 0);
+        assertEq(_balance(address(other)), 0);
         payer.withdraw();
-        assertEq(address(payer).balance, 1 ether);
+        assertEq(_balance(address(payer)), 1 ether);
     }
 
     receive() external payable { }
+}
+
+contract UpDownRefundsTestERC20 is UpDownRefundsTest {
+    function usesToken() internal pure override returns (bool) {
+        return true;
+    }
 }

@@ -1,14 +1,15 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+import { StakeAsset } from "./StakeAsset.sol";
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 import { BasePoolReader } from "./readings/BasePoolReader.sol";
 import { MarketCapReader } from "./readings/MarketCapReader.sol";
 
-/// @notice ETH threshold Pots on a lazy Campaign schedule, settled from pinned TWAP Readings.
-contract ThresholdPots is Ownable, ReentrancyGuard {
+/// @notice Stake-token threshold Pots on a lazy Campaign schedule, settled from pinned TWAP Readings.
+contract ThresholdPots is Ownable, ReentrancyGuard, StakeAsset {
     enum Side {
         Yes,
         No
@@ -41,7 +42,7 @@ contract ThresholdPots is Ownable, ReentrancyGuard {
     }
 
     struct CampaignSettings {
-        uint256 openingStake; // Per side, in wei.
+        uint256 openingStake; // Per side, in raw stake-token units.
         uint256 stakeCap;
         uint256 threshold; // Fixed rule; Reading units (1e36 quote tokens).
         uint32 tradingSeconds;
@@ -95,7 +96,6 @@ contract ThresholdPots is Ownable, ReentrancyGuard {
     error TooEarlyToSettle();
     error NoValidReading();
     error NotSettled();
-    error TransferFailed();
 
     uint256 public constant BLOCK_INTERVAL = 2;
     uint256 public constant MAX_OPENING_STAKE = 1e30;
@@ -130,7 +130,7 @@ contract ThresholdPots is Ownable, ReentrancyGuard {
     event CampaignStopScheduled(uint256 cutoff);
     event Refunded(uint256 indexed roundId);
 
-    constructor(address payer, BasePoolReader reader) Ownable(payer) {
+    constructor(address payer, BasePoolReader reader, address stakeToken) Ownable(payer) StakeAsset(stakeToken) {
         if (address(reader).code.length == 0) revert InvalidConfiguration();
         i_reader = reader;
     }
@@ -142,10 +142,11 @@ contract ThresholdPots is Ownable, ReentrancyGuard {
         super.renounceOwnership();
     }
 
-    function fund() external payable onlyOwner {
-        if (msg.value == 0) revert InvalidAmount();
-        fundingBalance += msg.value;
-        emit Funded(msg.sender, msg.value);
+    function fund(uint256 amount) external payable onlyOwner nonReentrant {
+        if (amount == 0) revert InvalidAmount();
+        fundingBalance += amount;
+        _takeStake(amount);
+        emit Funded(msg.sender, amount);
     }
 
     function seedRound(CampaignSettings calldata settings) external onlyOwner {
@@ -185,24 +186,25 @@ contract ThresholdPots is Ownable, ReentrancyGuard {
         return s_positions[roundId][player];
     }
 
-    function stake(uint256 roundId, Side side) external payable nonReentrant {
+    function stake(uint256 roundId, Side side, uint256 amount) external payable nonReentrant {
         if (phase(roundId) != Phase.Trading) revert OutsideTrading();
-        if (msg.value == 0) revert InvalidAmount();
+        if (amount == 0) revert InvalidAmount();
         Round storage r = _materialize(roundId);
         Position storage p = s_positions[roundId][msg.sender];
-        if (msg.value > r.stakeCap - p.paid) revert StakeCapExceeded();
-        p.paid += msg.value;
+        if (amount > r.stakeCap - p.paid) revert StakeCapExceeded();
+        p.paid += amount;
         if (side == Side.Yes) {
-            p.yes += msg.value;
-            r.yesTotal += msg.value;
+            p.yes += amount;
+            r.yesTotal += amount;
         } else {
-            p.no += msg.value;
-            r.noTotal += msg.value;
+            p.no += amount;
+            r.noTotal += amount;
         }
-        r.pot += msg.value;
-        r.collateral += msg.value;
-        reservedBalance += msg.value;
-        emit Staked(roundId, msg.sender, side, msg.value);
+        r.pot += amount;
+        r.collateral += amount;
+        reservedBalance += amount;
+        _takeStake(amount);
+        emit Staked(roundId, msg.sender, side, amount);
     }
 
     /// @notice Schedule new settings at the current Trading cutoff; existing Rounds stay pinned.
@@ -316,8 +318,7 @@ contract ThresholdPots is Ownable, ReentrancyGuard {
         }
         emit Claimed(roundId, msg.sender, amount);
         if (amount != 0) {
-            (bool success,) = msg.sender.call{ value: amount }("");
-            if (!success) revert TransferFailed();
+            _sendStake(msg.sender, amount);
         }
     }
 
@@ -327,8 +328,7 @@ contract ThresholdPots is Ownable, ReentrancyGuard {
         if (amount > fundingBalance) revert InsufficientFunding();
         fundingBalance -= amount;
         emit FundingWithdrawn(msg.sender, amount);
-        (bool success,) = msg.sender.call{ value: amount }("");
-        if (!success) revert TransferFailed();
+        _sendStake(msg.sender, amount);
     }
 
     /// @notice Dust follows the original Round payer, independently of later ownership changes.
@@ -338,8 +338,7 @@ contract ThresholdPots is Ownable, ReentrancyGuard {
         dustCredit[msg.sender] = 0;
         totalDustCredit -= amount;
         emit DustWithdrawn(msg.sender, amount);
-        (bool success,) = msg.sender.call{ value: amount }("");
-        if (!success) revert TransferFailed();
+        _sendStake(msg.sender, amount);
     }
 
     function _refundable(Round memory r) private view returns (bool) {

@@ -22,6 +22,8 @@ A spec naming **one payer, one product and the outreach route to a paid commitme
 
 ## Decisions so far
 
+- [The payer's token or USDC as the stake token](../paid-fast-rounds-build/issues/06-the-payers-token-or-usdc-as-the-stake-token.md): both market contracts select immutable ETH/ERC-20 custody at deployment, use raw units and exact transfers, and retain isolated pull claims; verified with both-asset suites, decimal fuzzing and native Base USDC forks in [PR #22](https://github.com/mangekyou-labs/flashstep/pull/22).
+
 - [Who already sells fast rounds to operators](issues/28-who-already-sells-fast-rounds-to-operators.md): nobody sells automatic 30-second Rounds to operators; crash games and 5-15 minute crypto up/down look closed, while sub-minute Rounds on non-price events, sponsor-funded prizes and an embed or API look open.
 - [How crypto operators buy game content](issues/27-how-crypto-operators-buy-game-content.md): operators pay a GGR revenue share (10-15% is a secondary estimate) through aggregators that require a supplier licence and lab certificate (tens of thousands of EUR a year, out of reach at $0); Stake Engine is the one open door, exclusive to Stake with terms unverified; prediction platforms don't buy formats.
 - [Legal exposure as a game supplier from Vietnam](issues/29-legal-exposure-as-a-game-supplier-from-vietnam.md): not taking bettor money doesn't clear a Vietnam-based dev (accomplice and "assisting gambling" provisions turn on knowledge); cases found are all operations, none a lone contractor; non-operator payers with no player stake carry lower risk; a US$20-200 lawyer consult is the cheap next step (7 questions ready).

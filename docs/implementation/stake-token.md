@@ -26,4 +26,17 @@ Before using real funds, recheck the asset address, code, identity and transfer 
 
 ## Validation
 
-The new real-USDC tests initially failed compilation against the old ETH-only constructor, funding and staking signatures. Final verification results and review findings are recorded below after integration.
+The new real-USDC tests initially failed compilation against the old ETH-only constructor, funding and staking signatures. The integrated run passed **209 tests, zero failures, zero skips**, using `BASE_RPC_URL=https://mainnet.base.org FOUNDRY_INVARIANT_RUNS=128 FOUNDRY_INVARIANT_DEPTH=100 FOUNDRY_INVARIANT_FAIL_ON_REVERT=true forge test --offline --no-match-path 'test/PredictionMarket.t.sol' -vv`. This includes five native-USDC tests at block 35,000,000, existing real-pool forks with both stake kinds, and four 6/18-decimal payout fuzz tests at 256 runs each. The untouched, unfinished Speedrun challenge grading suite is excluded.
+
+The implementer also ran the earlier market suites at 256 invariant runs × 500 calls: all ten invariant properties had 128,000 calls and zero handler reverts. These check escrow conservation, reserve backing and claim accounting across both assets. `forge fmt --check` on changed Solidity and `git diff --check` passed. Optimized deployed bytecode is 11,072 bytes for UpDownRounds and 10,997 bytes for ThresholdPots, below the EIP-170 limit.
+
+### Independent review
+
+- **Standards:** two findings, both fixed and re-reviewed: payout and seed fuzzing now cover the full accepted range (1 through `1e30`), and private `i_payout` preserves the public `PAYOUT()`/`MIN_SEED()` getters. Explicit constructor cases cover 0, 1, MAX−1, MAX and MAX+1. The four decimal fuzzers also passed 1,024 runs each after these fixes.
+- **Spec:** zero findings against GitHub issue #7.
+
+### Static analysis
+
+Slither 0.11.6 analyzed 29 contracts with 102 detectors: 145 reports (1 high, 38 medium, 36 low, 68 informational, 2 optimization). The high report is OpenZeppelin `Math.mulDiv`'s intentional XOR seed for modular inversion. Medium reports in the market contracts are deliberate schedule floor division and discrete enum/index/accounting comparisons. The custody adapter's `amount == 0` early return is intentional; its exact transfer checks are required asset validation. Its low-level ETH call is checked and reached from guarded, effects-first entry points. The `i_` naming report follows this repository's documented convention.
+
+Remaining medium reports concern unchanged dependency fixed-point math, reader sentinel checks/default-empty observation arrays and intentionally discarded overflow-check values, plus locked ETH in the unfinished challenge skeleton. No actionable finding was identified in the stake-asset change. This triage and the tests do not replace a deployment audit.

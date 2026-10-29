@@ -17,6 +17,8 @@
     "postinstall": "shx cp -n .env.example .env",
     "lint": "make lint",
     "test": "forge test",
+    "settle:bot": "node scripts-js/settleBot.js",
+    "settle:bot:smoke": "forge build && node scripts-js/settleBot.smoke.js",
     "verify": "make verify RPC_URL=${1:-localhost}"
   },
   "dependencies": {

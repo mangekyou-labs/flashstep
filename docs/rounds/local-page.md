@@ -46,3 +46,11 @@ A previous claim remains accessible through `/rounds?brand=DEGEN&round=1` or the
 The chart samples `BasePoolReader.preview()` while the page is open. It is a live TWAP display, not a stored history or settlement input. Before cutoff its dashed guide is the first displayed TWAP and is labelled as such. Once captured, the actual start Reading replaces that guide. A start Reading is never invented before trading stops. Settlement still uses captured, pinned Readings. Without a valid pool Reading the chart shows a waiting state.
 
 This ticket adds the Player flow only. A production settle bot, proof links, embeddings, threshold Rounds and payer analytics have separate tickets. The local fixture is the explicit settlement driver for this smoke run.
+
+## Validation record
+
+Issue #8 was verified against the disposable local fixture with `playwright-cli`. The Player bought 1 Up and 1 Down share, sold 0.5 Down and 0.25 Up, and saw both positions update. A 20-share order was blocked by the cumulative Stake cap. At cutoff the page followed Round #2; the historical Round #1 blocked trading. After real TWAP boundary capture and Up settlement, the Player claimed 0.0075 ETH and the page showed Claimed.
+
+The BASE configuration changed the name, ticker, logo and colours. Browser checks at widths 375, 768 and 1280 found no horizontal overflow and no console errors. Local screenshots are under `output/playwright/` (including `round-page-trading.png` and `round-page-cutoff.png`); generated browser artifacts are not committed.
+
+Automated checks passed: 71 Foundry tests across the Round and Reading suites, with one opt-in Base mainnet fork test skipped; Next.js TypeScript checking; and ESLint for the changed frontend files. Standards and spec reviews found no outstanding findings.

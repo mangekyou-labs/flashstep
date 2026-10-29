@@ -32,6 +32,8 @@ The implementer also ran the earlier market suites at 256 invariant runs × 500 
 
 ### Independent review
 
+After merging `main` at `6e3d0d8` (outage-refund issue #6), the same strict integrated command passed **249 tests across 43 suites, zero failures and zero skips**. Refund deadline/expiry cases, original-payer seed withdrawals, callback rollback, real-pool missed-boundary forks and outage accounting handlers run with both ETH and ERC-20. The stronger full-seed backing rule from #6 is retained, and `withdrawRefund()` pays through the selected stake-asset adapter. Formatting and diff checks pass.
+
 - **Standards:** two findings, both fixed and re-reviewed: payout and seed fuzzing now cover the full accepted range (1 through `1e30`), and private `i_payout` preserves the public `PAYOUT()`/`MIN_SEED()` getters. Explicit constructor cases cover 0, 1, MAX−1, MAX and MAX+1. The four decimal fuzzers also passed 1,024 runs each after these fixes.
 - **Spec:** zero findings against GitHub issue #7.
 

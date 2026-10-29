@@ -17,13 +17,15 @@ contract UpDownRounds is Ownable, ReentrancyGuard, StakeAsset {
         Trading,
         Window,
         AwaitingSettlement,
-        Settled
+        Settled,
+        Refunded
     }
     enum Result {
         None,
         Up,
         Down,
-        Tie
+        Tie,
+        Refunded
     }
 
     struct Position {
@@ -37,6 +39,7 @@ contract UpDownRounds is Ownable, ReentrancyGuard, StakeAsset {
 
     struct Round {
         BasePoolReader reader;
+        address payer;
         uint256 cutoff;
         uint256 windowEnd;
         uint256 stakeCap;
@@ -94,15 +97,20 @@ contract UpDownRounds is Ownable, ReentrancyGuard, StakeAsset {
     uint256 private immutable i_payout;
     uint256 public constant MAX_SEED = 1e30;
     uint256 public constant MAX_STAKE_CAP = 1e30;
+    uint256 public constant READING_GRACE_PERIOD = 60;
+    uint256 public constant UNSETTLED_EXPIRY = 24 hours;
     BasePoolReader public immutable i_reader;
     uint256 public fundingBalance;
     uint256 public reservedBalance;
+    uint256 public totalRefundCredit;
+    mapping(address => uint256) public refundCredit;
     mapping(uint256 => Round) private s_rounds;
     mapping(uint256 => mapping(address => Position)) private s_positions;
     bool private s_seeded;
     Schedule[] private s_schedule;
     uint256 public stopAfter;
     bool public stopped;
+    address private s_renouncedPayer;
 
     event Funded(address indexed payer, uint256 amount);
     event CampaignStopScheduled(uint256 cutoff);
@@ -114,6 +122,8 @@ contract UpDownRounds is Ownable, ReentrancyGuard, StakeAsset {
     event BoundaryCaptured(uint256 indexed roundId, bool start, uint256 blockNumber);
     event Settled(uint256 indexed roundId, Result result, uint256 startPrice, uint256 endPrice);
     event Claimed(uint256 indexed roundId, address indexed player, uint256 amount);
+    event Refunded(uint256 indexed roundId, address indexed payer, uint256 liquidity);
+    event RefundWithdrawn(address indexed payer, uint256 amount);
 
     constructor(address payer, BasePoolReader reader, address stakeToken, uint256 payout)
         Ownable(payer)
@@ -128,6 +138,12 @@ contract UpDownRounds is Ownable, ReentrancyGuard, StakeAsset {
     /// @notice Raw stake-token units paid for one whole winning share.
     function PAYOUT() external view returns (uint256) {
         return i_payout;
+    }
+
+    function renounceOwnership() public override onlyOwner {
+        if (fundingBalance != 0) revert InvalidConfiguration();
+        s_renouncedPayer = owner();
+        super.renounceOwnership();
     }
 
     /// @notice Smallest seed, equal to the payout for one whole share.
@@ -202,6 +218,7 @@ contract UpDownRounds is Ownable, ReentrancyGuard, StakeAsset {
 
     function phase(uint256 roundId) public view returns (Phase) {
         Round memory r = _viewRound(roundId);
+        if (r.result == Result.Refunded || _refundable(r)) return Phase.Refunded;
         if (r.result != Result.None) return Phase.Settled;
         if (block.timestamp < r.cutoff) return Phase.Trading;
         if (block.timestamp < r.windowEnd) return Phase.Window;
@@ -326,9 +343,15 @@ contract UpDownRounds is Ownable, ReentrancyGuard, StakeAsset {
     }
 
     function settle(uint256 roundId) external nonReentrant {
+        // An idle scheduled slot has no escrow to refund and must not consume future funding.
+        if (s_rounds[roundId].seededLiquidity == 0 && _refundable(_viewRound(roundId))) revert UnknownRound();
         Round storage r = _materialize(roundId);
         if (block.timestamp < r.windowEnd) revert TooEarlyToSettle();
         if (r.result != Result.None) revert AlreadySettled();
+        if (_refundable(r)) {
+            _refund(roundId, r);
+            return;
+        }
         if (r.startBlock == 0 || r.endBlock == 0) revert NoValidReading();
         BasePoolReader.Reading memory start = r.reader.read(r.startBlock);
         BasePoolReader.Reading memory end = r.reader.read(r.endBlock);
@@ -348,13 +371,20 @@ contract UpDownRounds is Ownable, ReentrancyGuard, StakeAsset {
     function claimable(uint256 roundId, address player) public view returns (uint256) {
         Round memory r = _viewRound(roundId);
         Position storage p = s_positions[roundId][player];
-        if (p.claimed || r.result == Result.None) return 0;
-        if (r.result == Result.Tie) return p.paid;
+        if (p.claimed) return 0;
+        if (r.result == Result.Refunded || _refundable(r) || r.result == Result.Tie) return p.paid;
+        if (r.result == Result.None) return 0;
         return Math.mulDiv(r.result == Result.Up ? p.up : p.down, i_payout, SHARE_SCALE);
     }
 
     function claim(uint256 roundId) external nonReentrant returns (uint256 amount) {
-        if (_viewRound(roundId).result == Result.None) revert NotSettled();
+        Round memory current = _viewRound(roundId);
+        if (_refundable(current)) {
+            if (s_rounds[roundId].seededLiquidity == 0) return 0;
+            _refund(roundId, s_rounds[roundId]);
+        } else if (current.result == Result.None) {
+            revert NotSettled();
+        }
         amount = claimable(roundId, msg.sender);
         if (amount == 0) return 0;
         s_positions[roundId][msg.sender].claimed = true;
@@ -373,8 +403,48 @@ contract UpDownRounds is Ownable, ReentrancyGuard, StakeAsset {
         _sendStake(msg.sender, amount);
     }
 
+    /// @notice Refunded seed belongs to the original payer, even after ownership changes.
+    function withdrawRefund() external nonReentrant returns (uint256 amount) {
+        amount = refundCredit[msg.sender];
+        if (amount == 0) return 0;
+        refundCredit[msg.sender] = 0;
+        totalRefundCredit -= amount;
+        emit RefundWithdrawn(msg.sender, amount);
+        _sendStake(msg.sender, amount);
+    }
+
+    function _refundable(Round memory r) private view returns (bool) {
+        if (r.result != Result.None) return false;
+        if (block.timestamp >= r.windowEnd + UNSETTLED_EXPIRY) return true;
+        if (block.timestamp < r.windowEnd + READING_GRACE_PERIOD) return false;
+        if (r.startBlock == 0 || r.endBlock == 0) return true;
+        try r.reader.read(r.startBlock) returns (BasePoolReader.Reading memory start) {
+            if (start.timestamp != r.cutoff) return true;
+        } catch {
+            return true;
+        }
+        try r.reader.read(r.endBlock) returns (BasePoolReader.Reading memory end) {
+            return end.timestamp != r.windowEnd;
+        } catch {
+            return true;
+        }
+    }
+
+    function _refund(uint256 roundId, Round storage r) private {
+        r.result = Result.Refunded;
+        uint256 released = r.collateral - r.refundLiability;
+        r.collateral = r.refundLiability;
+        reservedBalance -= released;
+        refundCredit[r.payer] += released;
+        totalRefundCredit += released;
+        emit Refunded(roundId, r.payer, released);
+    }
+
     function _checkBacking(Round storage r) private view {
-        if (r.collateral < r.upLiability || r.collateral < r.downLiability || r.collateral < r.refundLiability) {
+        if (
+            r.collateral < r.upLiability || r.collateral < r.downLiability
+                || r.collateral < r.seededLiquidity + r.refundLiability
+        ) {
             revert InsufficientReserve();
         }
     }
@@ -417,6 +487,8 @@ contract UpDownRounds is Ownable, ReentrancyGuard, StakeAsset {
             revert UnknownRound();
         }
         r.reader = settings.reader;
+        r.payer = owner();
+        if (r.payer == address(0)) r.payer = s_renouncedPayer;
         r.cutoff = start + settings.tradingSeconds;
         r.windowEnd = r.cutoff + settings.windowSeconds;
         r.stakeCap = settings.stakeCap;

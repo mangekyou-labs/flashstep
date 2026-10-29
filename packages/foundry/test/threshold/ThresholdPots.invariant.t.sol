@@ -30,6 +30,8 @@ contract ThresholdHandler is StakeTestBase {
     uint256 public fundingWithdrawn;
     uint256 public dustWithdrawn;
     uint256 public clock = 100;
+    bool public missingReadings;
+    uint256 public refunds;
 
     constructor(address asset) {
         _setStakeToken(asset);
@@ -91,12 +93,12 @@ contract ThresholdHandler is StakeTestBase {
     function advance(uint256 rawSteps, int24 rawTick) public {
         uint256 steps = bound(rawSteps, 1, 3);
         int24 tick = int24(bound(int256(rawTick), -200, 200));
-        for (uint256 i; i < steps && clock < 180; ++i) {
+        for (uint256 i; i < steps && clock < 240; ++i) {
             clock += 2;
             vm.warp(clock);
             vm.roll(10 + (clock - 100) / 2);
             for (uint256 id = 1; id <= 6; ++id) {
-                if (tracked[id] && clock == 100 + id * 10 + 14) market.captureBoundary(id);
+                if (!missingReadings && tracked[id] && clock == 100 + id * 10 + 14) market.captureBoundary(id);
             }
             pool.write(tick);
         }
@@ -105,11 +107,19 @@ contract ThresholdHandler is StakeTestBase {
     function settle() public {
         for (uint256 id = 1; id <= 6; ++id) {
             if (!tracked[id] || outcome[id] != ThresholdPots.Result.None || clock < 100 + id * 10 + 14) continue;
+            uint256 endBlock = market.round(id).endBlock;
+            uint256 windowEnd = 100 + id * 10 + 14;
+            if (endBlock == 0 && clock < windowEnd + 60) continue;
             market.settle(id);
-            uint256 value = reader.read(market.round(id).endBlock).price;
-            outcome[id] = value > THRESHOLD
-                ? ThresholdPots.Result.Yes
-                : value < THRESHOLD ? ThresholdPots.Result.No : ThresholdPots.Result.Tie;
+            if (clock >= windowEnd + 24 hours || endBlock == 0) {
+                outcome[id] = ThresholdPots.Result.Refunded;
+                ++refunds;
+            } else {
+                uint256 value = reader.read(endBlock).price;
+                outcome[id] = value > THRESHOLD
+                    ? ThresholdPots.Result.Yes
+                    : value < THRESHOLD ? ThresholdPots.Result.No : ThresholdPots.Result.Tie;
+            }
             assertEq(uint256(market.round(id).result), uint256(outcome[id]));
             ++settlements;
         }
@@ -130,6 +140,12 @@ contract ThresholdHandler is StakeTestBase {
     function claim(uint256 rawId, uint256 rawActor) public {
         uint256 id = rawId % 6 + 1;
         uint256 actor = rawActor % 4;
+        if (tracked[id] && outcome[id] == ThresholdPots.Result.None && market.phase(id) == ThresholdPots.Phase.Refunded)
+        {
+            outcome[id] = ThresholdPots.Result.Refunded;
+            ++refunds;
+            ++settlements;
+        }
         if (outcome[id] == ThresholdPots.Result.None) return;
         uint256 expected = claimed[id][actor] ? 0 : entitlement(id, actor);
         assertEq(market.claimable(id, actors[actor]), expected);
@@ -157,6 +173,16 @@ contract ThresholdHandler is StakeTestBase {
         uint256 amount = market.withdrawDust();
         assertEq(_balance(address(this)) - beforeBalance, amount);
         dustWithdrawn += amount;
+    }
+
+    function outage(bool missing) external {
+        missingReadings = missing;
+    }
+
+    function expire() external {
+        clock += 24 hours;
+        vm.warp(clock);
+        vm.roll(10 + (clock - 100) / 2);
     }
 
     function assertAccounting(bool allSettled) public view {
@@ -191,7 +217,7 @@ contract ThresholdHandler is StakeTestBase {
     }
 
     function finish() external {
-        while (clock < 180) advance(1, 50);
+        while (clock < 240) advance(1, 50);
         settle();
         withdrawFunding(type(uint256).max);
         assertAccounting(true);
@@ -205,6 +231,7 @@ contract ThresholdHandler is StakeTestBase {
         assertGe(stakes, 4);
         assertGe(settlements, 2);
         assertGe(claims, 2);
+        emit log_named_uint("refunded books", refunds);
     }
     receive() external payable { }
 }
@@ -215,13 +242,15 @@ contract ThresholdPotsInvariantTest is StdInvariant, StakeTestBase {
     function setUp() public virtual {
         _initStakeToken();
         handler = new ThresholdHandler(address(stakeToken));
-        bytes4[] memory selectors = new bytes4[](6);
+        bytes4[] memory selectors = new bytes4[](8);
         selectors[0] = handler.stake.selector;
         selectors[1] = handler.advance.selector;
         selectors[2] = handler.settle.selector;
         selectors[3] = handler.claim.selector;
         selectors[4] = handler.withdrawFunding.selector;
         selectors[5] = handler.withdrawDust.selector;
+        selectors[6] = handler.outage.selector;
+        selectors[7] = handler.expire.selector;
         targetSelector(FuzzSelector(address(handler), selectors));
         targetContract(address(handler));
     }

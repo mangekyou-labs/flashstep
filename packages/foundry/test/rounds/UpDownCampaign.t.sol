@@ -114,21 +114,21 @@ contract UpDownCampaignTest is RoundFixture {
         market.setCampaignSettings(1 ether, 1 ether, 10, 4, 1000, reader);
     }
 
-    function testProfitableSellKeepsCreditAcrossLaterBuysAndTiePaysNothing() public {
+    function testSellCannotSpendSeedNeededForOutageAndTieRefunds() public {
         uint256 paid = buyAs(alice, UpDownRounds.Side.Up, 20e18);
         buyAs(bob, UpDownRounds.Side.Up, 60e18);
         uint256 proceeds = market.quoteSell(1, UpDownRounds.Side.Up, 20e18);
         assertGt(proceeds, paid);
-        vm.prank(alice);
-        market.sell(1, UpDownRounds.Side.Up, 20e18, proceeds);
-        uint256 later = buyAs(alice, UpDownRounds.Side.Down, 1e18);
-        assertGt(proceeds, paid + later);
-        finish(0);
-        assertEq(market.claimable(1, alice), 0);
         uint256 beforeBalance = _balance(alice);
         vm.prank(alice);
-        assertEq(market.claim(1), 0);
+        vm.expectRevert(UpDownRounds.InsufficientReserve.selector);
+        market.sell(1, UpDownRounds.Side.Up, 20e18, proceeds);
         assertEq(_balance(alice), beforeBalance);
+        finish(0);
+        assertEq(market.claimable(1, alice), paid);
+        vm.prank(alice);
+        assertEq(market.claim(1), paid);
+        assertEq(_balance(alice) - beforeBalance, paid);
     }
 
     function testSellDeadlineBalanceAndMinimumProceeds() public {

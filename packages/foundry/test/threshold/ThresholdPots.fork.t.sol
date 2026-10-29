@@ -8,6 +8,50 @@ import { BasePoolReader } from "../../contracts/readings/BasePoolReader.sol";
 import { MarketCapReader } from "../../contracts/readings/MarketCapReader.sol";
 
 contract ThresholdPotsForkTest is StakeTestBase {
+    function testMissedRealPoolBoundaryRefundsOpeningAndStake() public {
+        string memory rpc = vm.envOr("BASE_RPC_URL", string(""));
+        if (bytes(rpc).length == 0) {
+            vm.skip(true);
+            return;
+        }
+        vm.createSelectFork(rpc, 35_000_000);
+        _initStakeToken();
+        if (address(stakeToken) != address(0)) vm.makePersistent(address(stakeToken));
+        BasePoolReader reader = new BasePoolReader(
+            0xd0b53D9277642d899DF5C87A3966A349A798F224, 0x4200000000000000000000000000000000000006, 30
+        );
+        ThresholdPots market = _newThreshold(address(this), reader);
+        vm.makePersistent(address(market), address(reader));
+        _deal(address(this), 2 ether);
+        market.fund{ value: _value(2 ether) }(2 ether);
+        market.seedRound(
+            ThresholdPots.CampaignSettings(
+                1 ether,
+                1 ether,
+                4_500e36,
+                10,
+                4,
+                uint64(block.timestamp + 10),
+                ThresholdPots.Metric.Price,
+                reader,
+                MarketCapReader(address(0))
+            )
+        );
+        address player = address(0xA11CE);
+        _deal(player, 1 ether);
+        vm.prank(player);
+        market.stake{ value: _value(1 ether) }(1, ThresholdPots.Side.Yes, 1 ether);
+        vm.rollFork(35_000_037);
+        assertGt(reader.capture().price, 0);
+        vm.expectRevert(BasePoolReader.NoValidReading.selector);
+        reader.read(35_000_007);
+        vm.prank(player);
+        assertEq(market.claim(1), 1 ether);
+        assertEq(market.claim(1), 2 ether);
+        assertEq(_balance(player), 1 ether);
+        assertEq(_balance(address(market)), 0);
+    }
+
     function testThresholdPotSettlesFromRealPinnedBasePool() public {
         string memory rpc = vm.envOr("BASE_RPC_URL", string(""));
         if (bytes(rpc).length == 0) {

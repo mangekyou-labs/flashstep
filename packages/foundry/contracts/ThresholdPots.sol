@@ -23,13 +23,15 @@ contract ThresholdPots is Ownable, ReentrancyGuard, StakeAsset {
         Yes,
         No,
         Tie,
-        Unmatched
+        Unmatched,
+        Refunded
     }
     enum Phase {
         Trading,
         Window,
         AwaitingSettlement,
-        Settled
+        Settled,
+        Refunded
     }
 
     struct Position {
@@ -98,6 +100,8 @@ contract ThresholdPots is Ownable, ReentrancyGuard, StakeAsset {
     uint256 public constant BLOCK_INTERVAL = 2;
     uint256 public constant MAX_OPENING_STAKE = 1e30;
     uint256 public constant MAX_STAKE_CAP = 1e30;
+    uint256 public constant READING_GRACE_PERIOD = 60;
+    uint256 public constant UNSETTLED_EXPIRY = 24 hours;
     BasePoolReader public immutable i_reader;
     uint256 public fundingBalance;
     uint256 public reservedBalance;
@@ -124,6 +128,7 @@ contract ThresholdPots is Ownable, ReentrancyGuard, StakeAsset {
     event FundingWithdrawn(address indexed payer, uint256 amount);
     event SettingsScheduled(uint256 indexed firstRound, uint256 start, CampaignSettings settings);
     event CampaignStopScheduled(uint256 cutoff);
+    event Refunded(uint256 indexed roundId);
 
     constructor(address payer, BasePoolReader reader, address stakeToken) Ownable(payer) StakeAsset(stakeToken) {
         if (address(reader).code.length == 0) revert InvalidConfiguration();
@@ -165,6 +170,7 @@ contract ThresholdPots is Ownable, ReentrancyGuard, StakeAsset {
 
     function phase(uint256 roundId) public view returns (Phase) {
         Round memory r = _viewRound(roundId);
+        if (r.result == Result.Refunded || _refundable(r)) return Phase.Refunded;
         if (r.result != Result.None) return Phase.Settled;
         if (block.timestamp < r.cutoff) return Phase.Trading;
         if (block.timestamp < r.windowEnd) return Phase.Window;
@@ -238,9 +244,14 @@ contract ThresholdPots is Ownable, ReentrancyGuard, StakeAsset {
     }
 
     function settle(uint256 roundId) external nonReentrant {
+        if (!s_rounds[roundId].materialized && _refundable(_viewRound(roundId))) revert UnknownRound();
         Round storage r = _materialize(roundId);
         if (r.result != Result.None) revert AlreadySettled();
         if (block.timestamp < r.windowEnd) revert TooEarlyToSettle();
+        if (_refundable(r)) {
+            _refund(roundId, r);
+            return;
+        }
         if (r.yesTotal == 0 || r.noTotal == 0) {
             r.result = Result.Unmatched;
         } else {
@@ -265,15 +276,24 @@ contract ThresholdPots is Ownable, ReentrancyGuard, StakeAsset {
     function claimable(uint256 roundId, address player) public view returns (uint256) {
         Round memory r = _viewRound(roundId);
         Position storage p = s_positions[roundId][player];
-        if (p.claimed || r.result == Result.None) return 0;
-        if (r.result == Result.Tie || r.result == Result.Unmatched) return p.yes + p.no;
+        if (p.claimed) return 0;
+        if (r.result == Result.Refunded || _refundable(r) || r.result == Result.Tie || r.result == Result.Unmatched) {
+            return p.yes + p.no;
+        }
+        if (r.result == Result.None) return 0;
         return
             Math.mulDiv(r.result == Result.Yes ? p.yes : p.no, r.pot, r.result == Result.Yes ? r.yesTotal : r.noTotal);
     }
 
     function claim(uint256 roundId) external nonReentrant returns (uint256 amount) {
         Round storage r = s_rounds[roundId];
-        if (_viewRound(roundId).result == Result.None) revert NotSettled();
+        Round memory current = _viewRound(roundId);
+        if (_refundable(current)) {
+            if (!r.materialized) return 0;
+            _refund(roundId, r);
+        } else if (current.result == Result.None) {
+            revert NotSettled();
+        }
         Position storage p = s_positions[roundId][msg.sender];
         if (p.claimed) return 0;
         amount = claimable(roundId, msg.sender);
@@ -319,6 +339,32 @@ contract ThresholdPots is Ownable, ReentrancyGuard, StakeAsset {
         totalDustCredit -= amount;
         emit DustWithdrawn(msg.sender, amount);
         _sendStake(msg.sender, amount);
+    }
+
+    function _refundable(Round memory r) private view returns (bool) {
+        if (r.result != Result.None) return false;
+        if (block.timestamp >= r.windowEnd + UNSETTLED_EXPIRY) return true;
+        if (block.timestamp < r.windowEnd + READING_GRACE_PERIOD) return false;
+        // Unmatched Pots do not need a Reading to settle.
+        if (r.yesTotal == 0 || r.noTotal == 0) return false;
+        if (r.endBlock == 0) return true;
+        if (r.metric == Metric.Price) {
+            try r.reader.read(r.endBlock) returns (BasePoolReader.Reading memory reading) {
+                return reading.timestamp != r.windowEnd;
+            } catch {
+                return true;
+            }
+        }
+        try r.marketCapReader.readMarketCap(r.endBlock) returns (MarketCapReader.MarketCapReading memory reading) {
+            return reading.reading.timestamp != r.windowEnd;
+        } catch {
+            return true;
+        }
+    }
+
+    function _refund(uint256 roundId, Round storage r) private {
+        r.result = Result.Refunded;
+        emit Refunded(roundId);
     }
 
     function _validateSettings(CampaignSettings memory settings) private view {

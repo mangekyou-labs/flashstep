@@ -107,6 +107,7 @@ contract ThresholdPots is Ownable, ReentrancyGuard {
     mapping(uint256 => mapping(address => Position)) private s_positions;
     Schedule[] private s_schedule;
     bool private s_seeded;
+    address private s_renouncedPayer;
     bool public stopped;
     uint256 public stopAfter;
 
@@ -127,6 +128,13 @@ contract ThresholdPots is Ownable, ReentrancyGuard {
     constructor(address payer, BasePoolReader reader) Ownable(payer) {
         if (address(reader).code.length == 0) revert InvalidConfiguration();
         i_reader = reader;
+    }
+
+    /// @notice Release uncommitted prefunding before removing its withdrawal authority.
+    function renounceOwnership() public override onlyOwner {
+        if (fundingBalance != 0) revert InvalidConfiguration();
+        s_renouncedPayer = owner();
+        super.renounceOwnership();
     }
 
     function fund() external payable onlyOwner {
@@ -366,6 +374,7 @@ contract ThresholdPots is Ownable, ReentrancyGuard {
         r.stakeCap = settings.stakeCap;
         r.openingStake = settings.openingStake;
         r.payer = owner();
+        if (r.payer == address(0)) r.payer = s_renouncedPayer;
         r.yesTotal = settings.openingStake;
         r.noTotal = settings.openingStake;
         r.pot = 2 * settings.openingStake;

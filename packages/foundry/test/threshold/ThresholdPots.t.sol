@@ -188,4 +188,85 @@ contract ThresholdPotsTest is ThresholdFixture {
         vm.expectRevert(ThresholdPots.CampaignStopped.selector);
         market.stopCampaign();
     }
+
+    function testRenounceRequiresOriginalPayerToWithdrawUncommittedFunding() public {
+        market.seedRound(settings());
+        vm.expectRevert(ThresholdPots.InvalidConfiguration.selector);
+        market.renounceOwnership();
+        assertEq(market.owner(), address(this));
+        assertEq(market.fundingBalance(), 8 ether);
+        market.withdrawFunding(8 ether);
+        market.renounceOwnership();
+        assertEq(market.owner(), address(0));
+        finish(1);
+        assertEq(market.claim(1), 2 ether);
+        assertEq(address(market).balance, 0);
+    }
+
+    function testRenouncePreservesOriginalPayerOpeningAndDustClaims() public {
+        ThresholdPots.CampaignSettings memory s = settings();
+        s.openingStake = 1;
+        s.threshold -= 1;
+        market.seedRound(s);
+        market.withdrawFunding(10 ether - 2);
+        stakeAs(alice, 1, ThresholdPots.Side.Yes, 2);
+        stakeAs(bob, 1, ThresholdPots.Side.No, 3);
+        market.renounceOwnership();
+        finish(1);
+        assertEq(market.claim(1), 2);
+        vm.prank(alice);
+        assertEq(market.claim(1), 4);
+        assertEq(market.dustCredit(address(this)), 1);
+        assertEq(market.dustCredit(address(0)), 0);
+        assertEq(market.withdrawDust(), 1);
+        assertEq(address(market).balance, 0);
+    }
+
+    function testRenouncedLazyRoundsRequireNoOpeningPrefunding() public {
+        market.seedRound(settings());
+        market.withdrawFunding(8 ether);
+        market.renounceOwnership();
+        vm.warp(110);
+        vm.expectRevert(ThresholdPots.InsufficientFunding.selector);
+        stakeAs(alice, 2, ThresholdPots.Side.Yes, 1);
+        assertEq(market.reservedBalance(), 2 ether);
+        assertFalse(market.round(2).materialized);
+
+        ThresholdPots zeroOpening = new ThresholdPots(address(this), reader);
+        ThresholdPots.CampaignSettings memory s = settings();
+        s.openingStake = 0;
+        zeroOpening.seedRound(s);
+        zeroOpening.renounceOwnership();
+        vm.warp(120);
+        vm.prank(alice);
+        zeroOpening.stake{ value: 1 }(2, ThresholdPots.Side.Yes);
+        vm.warp(134);
+        zeroOpening.settle(2);
+        vm.prank(alice);
+        assertEq(zeroOpening.claim(2), 1);
+        assertEq(address(zeroOpening).balance, 0);
+    }
+
+    function testZeroOpeningAfterRenounceCreditsDustToLastPayer() public {
+        ThresholdPots.CampaignSettings memory s = settings();
+        s.openingStake = 0;
+        s.threshold -= 1;
+        market.seedRound(s);
+        market.withdrawFunding(10 ether);
+        market.renounceOwnership();
+        vm.warp(110);
+        stakeAs(alice, 2, ThresholdPots.Side.Yes, 1);
+        stakeAs(bob, 2, ThresholdPots.Side.Yes, 1);
+        stakeAs(carol, 2, ThresholdPots.Side.No, 1);
+        finish(2);
+        vm.prank(alice);
+        assertEq(market.claim(2), 1);
+        vm.prank(bob);
+        assertEq(market.claim(2), 1);
+        assertEq(market.round(2).payer, address(this));
+        assertEq(market.dustCredit(address(this)), 1);
+        assertEq(market.dustCredit(address(0)), 0);
+        assertEq(market.withdrawDust(), 1);
+        assertEq(address(market).balance, 0);
+    }
 }

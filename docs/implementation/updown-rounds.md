@@ -1,5 +1,7 @@
 # One up/down Round in ETH — issue #3
 
+This document records the issue #3 implementation at its merge. The current Campaign extension, including superseded one-Round restrictions and accounting, is documented in [issue #4 implementation notes](updown-campaign.md).
+
 This is the first contract slice of [issue #3](https://github.com/mangekyou-labs/flashstep/issues/3), under the [paid fast rounds spec](../../.scratch/paid-fast-rounds/spec.md). `UpDownRounds` sits beside the untouched challenge contract. One owner-funded Round has a private Up/Down share book, exact-share buys, time-derived phases, TWAP settlement and pull claims. Selling, repeating Campaigns, owner withdrawals and settings changes belong to #4; outage refunds and expiry belong to #6; the page belongs to #8. The contract is a build slice, not a complete Campaign deployment.
 
 ## Interface and accounting

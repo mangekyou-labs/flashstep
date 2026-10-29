@@ -1,12 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 import { Test } from "forge-std/Test.sol";
+import { StakeTestBase } from "../stake/StakeTestBase.sol";
+import { StakeAsset } from "../../contracts/StakeAsset.sol";
 import { ThresholdPots } from "../../contracts/ThresholdPots.sol";
 import { BasePoolReader } from "../../contracts/readings/BasePoolReader.sol";
 import { MarketCapReader } from "../../contracts/readings/MarketCapReader.sol";
 import { MockBasePool, MockReadingToken } from "../mocks/MockBasePool.sol";
 
-abstract contract ThresholdFixture is Test {
+abstract contract ThresholdFixture is StakeTestBase {
     ThresholdPots market;
     BasePoolReader reader;
     MarketCapReader capReader;
@@ -17,6 +19,7 @@ abstract contract ThresholdFixture is Test {
     address carol = address(0xCA201);
 
     function setUp() public virtual {
+        _initStakeToken();
         vm.warp(100);
         vm.roll(10);
         base = new MockReadingToken(18, 100e18);
@@ -25,12 +28,12 @@ abstract contract ThresholdFixture is Test {
         pool.write(0);
         reader = new BasePoolReader(address(pool), address(base), 4);
         capReader = new MarketCapReader(reader, MarketCapReader.SupplyMode.Fixed, 100e18);
-        market = new ThresholdPots(address(this), reader);
-        vm.deal(address(this), 100 ether);
-        vm.deal(alice, 100 ether);
-        vm.deal(bob, 100 ether);
-        vm.deal(carol, 100 ether);
-        market.fund{ value: 10 ether }();
+        market = _newThreshold(address(this), reader);
+        _deal(address(this), 100 ether);
+        _deal(alice, 100 ether);
+        _deal(bob, 100 ether);
+        _deal(carol, 100 ether);
+        market.fund{ value: _value(10 ether) }(10 ether);
     }
 
     function settings() internal view returns (ThresholdPots.CampaignSettings memory s) {
@@ -49,7 +52,7 @@ abstract contract ThresholdFixture is Test {
 
     function stakeAs(address who, uint256 id, ThresholdPots.Side side, uint256 amount) internal {
         vm.prank(who);
-        market.stake{ value: amount }(id, side);
+        market.stake{ value: _value(amount) }(id, side, amount);
     }
 
     function finish(uint256 id) internal {

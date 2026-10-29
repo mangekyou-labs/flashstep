@@ -2,6 +2,8 @@
 pragma solidity ^0.8.24;
 
 import { Test } from "forge-std/Test.sol";
+import { StakeTestBase } from "../stake/StakeTestBase.sol";
+import { StakeAsset } from "../../contracts/StakeAsset.sol";
 import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import { ERC20Votes } from "@openzeppelin/contracts/token/ERC20/extensions/ERC20Votes.sol";
 import { EIP712 } from "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
@@ -24,13 +26,14 @@ contract ThresholdSupplyToken is ERC20Votes {
     }
 }
 
-contract ThresholdPotsMarketCapTest is Test {
+contract ThresholdPotsMarketCapTest is StakeTestBase {
     ThresholdSupplyToken token;
     MockBasePool pool;
     BasePoolReader reader;
     ThresholdPots market;
 
-    function setUp() public {
+    function setUp() public virtual {
+        _initStakeToken();
         vm.warp(100);
         vm.roll(10);
         token = new ThresholdSupplyToken();
@@ -38,9 +41,9 @@ contract ThresholdPotsMarketCapTest is Test {
         pool = new MockBasePool(address(token), address(quote));
         pool.write(0);
         reader = new BasePoolReader(address(pool), address(token), 4);
-        market = new ThresholdPots(address(this), reader);
-        vm.deal(address(this), 10 ether);
-        market.fund{ value: 2 ether }();
+        market = _newThreshold(address(this), reader);
+        _deal(address(this), 10 ether);
+        market.fund{ value: _value(2 ether) }(2 ether);
     }
 
     function settings(MarketCapReader caps, uint256 threshold)
@@ -101,7 +104,7 @@ contract ThresholdPotsMarketCapTest is Test {
         assertEq(r.endReading.blockNumber, 17);
         assertEq(market.claimable(1, address(this)), 2 ether);
         market.claim(1);
-        assertEq(address(market).balance, 0);
+        assertEq(_balance(address(market)), 0);
     }
 
     function testFixedSupplyTieUsesConfiguredHistoricalSupply() public {
@@ -135,8 +138,14 @@ contract ThresholdPotsMarketCapTest is Test {
         assertEq(r.endReading.price, 1e36);
         assertEq(market.claimable(1, address(this)), 2 ether);
         market.claim(1);
-        assertEq(address(market).balance, 0);
+        assertEq(_balance(address(market)), 0);
     }
 
     receive() external payable { }
+}
+
+contract ThresholdPotsMarketCapTestERC20 is ThresholdPotsMarketCapTest {
+    function usesToken() internal pure override returns (bool) {
+        return true;
+    }
 }

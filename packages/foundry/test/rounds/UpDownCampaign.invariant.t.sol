@@ -25,6 +25,8 @@ contract CampaignHandler is Test {
     uint256 public successfulClaims;
     uint256 public successfulSettlements;
     uint256 public expectedRefusals;
+    bool public missingReadings;
+    uint256 public successfulRefunds;
     uint256 public clock = 100;
     uint256 public height = 10;
 
@@ -107,7 +109,7 @@ contract CampaignHandler is Test {
 
     function advance(uint256 rawSteps, int24 rawTick) external {
         uint256 steps = bound(rawSteps, 1, 3);
-        for (uint256 step; step < steps && clock < 300; ++step) {
+        for (uint256 step; step < steps && clock < 400; ++step) {
             clock += 2;
             vm.warp(clock);
             vm.roll(++height);
@@ -117,6 +119,7 @@ contract CampaignHandler is Test {
     }
 
     function _captureBoundaries() private {
+        if (missingReadings) return;
         for (uint256 i; i < rounds.length; ++i) {
             uint256 id = rounds[i];
             UpDownRounds.Round memory r = market.round(id);
@@ -131,8 +134,10 @@ contract CampaignHandler is Test {
             uint256 id = rounds[i];
             UpDownRounds.Round memory r = market.round(id);
             if (r.result == UpDownRounds.Result.None && clock >= r.windowEnd) {
+                if ((r.startBlock == 0 || r.endBlock == 0) && clock < r.windowEnd + 60) continue;
                 market.settle(id);
                 ++successfulSettlements;
+                if (market.round(id).result == UpDownRounds.Result.Refunded) ++successfulRefunds;
             }
         }
     }
@@ -140,16 +145,25 @@ contract CampaignHandler is Test {
     function claim(uint256 rawPlayer, uint256 rawRound) external {
         address player = players[rawPlayer % 3];
         uint256 id = rounds[rawRound % rounds.length];
-        if (market.phase(id) != UpDownRounds.Phase.Settled) return;
+        UpDownRounds.Phase current = market.phase(id);
+        if (current != UpDownRounds.Phase.Settled && current != UpDownRounds.Phase.Refunded) return;
+        bool finalizes = market.round(id).result == UpDownRounds.Result.None;
         uint256 beforeBalance = player.balance;
         vm.prank(player);
         market.claim(id);
+        if (finalizes) {
+            ++successfulSettlements;
+            ++successfulRefunds;
+        }
         uint256 received = player.balance - beforeBalance;
         claims += received;
         if (received != 0) ++successfulClaims;
     }
 
     function withdraw(uint256 rawAmount) external {
+        uint256 beforeRefund = address(this).balance;
+        market.withdrawRefund();
+        withdrawals += address(this).balance - beforeRefund;
         uint256 available = market.fundingBalance();
         if (available == 0) return;
         uint256 beforeBalance = address(this).balance;
@@ -169,9 +183,19 @@ contract CampaignHandler is Test {
         if (!market.stopped()) market.stopCampaign();
     }
 
+    function outage(bool missing) external {
+        missingReadings = missing;
+    }
+
+    function expire() external {
+        clock += 24 hours;
+        vm.warp(clock);
+        vm.roll(++height);
+    }
+
     function finishAll() external {
         if (!market.stopped()) market.stopCampaign();
-        while (clock < 340) {
+        while (clock < 400) {
             clock += 2;
             vm.warp(clock);
             vm.roll(++height);
@@ -205,7 +229,7 @@ contract UpDownCampaignInvariantTest is StdInvariant, Test {
         handler.advance(2, 100);
         handler.buy(1, 2e18, false);
         handler.sell(1, 1e18, false);
-        bytes4[] memory selectors = new bytes4[](8);
+        bytes4[] memory selectors = new bytes4[](10);
         selectors[0] = handler.buy.selector;
         selectors[1] = handler.sell.selector;
         selectors[2] = handler.advance.selector;
@@ -214,6 +238,8 @@ contract UpDownCampaignInvariantTest is StdInvariant, Test {
         selectors[5] = handler.withdraw.selector;
         selectors[6] = handler.configure.selector;
         selectors[7] = handler.stop.selector;
+        selectors[8] = handler.outage.selector;
+        selectors[9] = handler.expire.selector;
         targetSelector(FuzzSelector(address(handler), selectors));
         targetContract(address(handler));
     }
@@ -237,7 +263,7 @@ contract UpDownCampaignInvariantTest is StdInvariant, Test {
                 owed += roundOwed;
             }
         }
-        assertEq(address(market).balance, escrow + owed + market.fundingBalance());
+        assertEq(address(market).balance, escrow + owed + market.fundingBalance() + market.totalRefundCredit());
     }
 
     function invariantEveryWeiHasObservedSourceAndDestination() public view {
@@ -255,7 +281,11 @@ contract UpDownCampaignInvariantTest is StdInvariant, Test {
             for (uint256 player; player < 3; ++player) {
                 address account = handler.players(player);
                 uint256 claim = market.claimable(id, account);
-                if (market.round(id).result == UpDownRounds.Result.Tie && !market.positionOf(id, account).claimed) {
+                UpDownRounds.Result result = market.round(id).result;
+                if (
+                    (result == UpDownRounds.Result.Tie || result == UpDownRounds.Result.Refunded)
+                        && !market.positionOf(id, account).claimed
+                ) {
                     uint256 bought = handler.paid(id, account);
                     uint256 proceeds = handler.soldFor(id, account);
                     assertEq(claim, bought > proceeds ? bought - proceeds : 0);
@@ -264,7 +294,7 @@ contract UpDownCampaignInvariantTest is StdInvariant, Test {
             }
         }
         // Once every book settles, this is the ticket's literal equality: no locked reserve remains.
-        assertEq(address(market).balance, owed + market.fundingBalance());
+        assertEq(address(market).balance, owed + market.fundingBalance() + market.totalRefundCredit());
         handler.withdraw(type(uint256).max);
         assertEq(address(market).balance, owed);
         for (uint256 i; i < handler.roundCount(); ++i) {
@@ -280,6 +310,7 @@ contract UpDownCampaignInvariantTest is StdInvariant, Test {
         emit log_named_uint("successful sells", handler.successfulSells());
         emit log_named_uint("paid claims", handler.successfulClaims());
         emit log_named_uint("settled books", handler.successfulSettlements());
+        emit log_named_uint("refunded books", handler.successfulRefunds());
         emit log_named_uint("expected cap/backing refusals", handler.expectedRefusals());
     }
 }

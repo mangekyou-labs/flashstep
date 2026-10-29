@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
+import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 import { Test } from "forge-std/Test.sol";
 import { StakeAsset } from "../../contracts/StakeAsset.sol";
 import { UpDownRounds } from "../../contracts/UpDownRounds.sol";
@@ -208,28 +209,54 @@ contract StakeTokenBehaviorTest is Test {
         assertEq(pot.reservedBalance(), 0);
     }
 
-    function testFuzzSixDecimalUpDownPayouts(uint64 rawPayout, uint32 rawShares) public {
-        _fuzzUpDown(6, rawPayout, rawShares);
+    function testPayoutConstructorBoundaries() public {
+        uint256 maximum = up.MAX_SEED();
+        vm.expectRevert(UpDownRounds.InvalidConfiguration.selector);
+        new UpDownRounds(address(this), reader, address(token), 0);
+        _assertPayoutBoundary(1);
+        _assertPayoutBoundary(maximum - 1);
+        _assertPayoutBoundary(maximum);
+        vm.expectRevert(UpDownRounds.InvalidConfiguration.selector);
+        new UpDownRounds(address(this), reader, address(token), maximum + 1);
     }
 
-    function testFuzzEighteenDecimalUpDownPayouts(uint64 rawPayout, uint32 rawShares) public {
-        _fuzzUpDown(18, rawPayout, rawShares);
+    function _assertPayoutBoundary(uint256 payout) internal {
+        UpDownRounds market = new UpDownRounds(address(this), reader, address(token), payout);
+        assertEq(market.PAYOUT(), payout);
+        assertEq(market.MIN_SEED(), payout);
+        token.mint(address(this), payout);
+        token.approve(address(market), payout);
+        market.fund(payout);
+        market.seedRound(payout, 1e30, 10, 4);
+        assertEq(market.round(1).sharesPerSide, 1 ether);
     }
 
-    function _fuzzUpDown(uint8 decimals, uint64 rawPayout, uint32 rawShares) internal {
+    function testFuzzSixDecimalUpDownPayouts(uint256 rawPayout, uint256 rawSeed, uint256 rawShares) public {
+        _fuzzUpDown(6, rawPayout, rawSeed, rawShares);
+    }
+
+    function testFuzzEighteenDecimalUpDownPayouts(uint256 rawPayout, uint256 rawSeed, uint256 rawShares) public {
+        _fuzzUpDown(18, rawPayout, rawSeed, rawShares);
+    }
+
+    function _fuzzUpDown(uint8 decimals, uint256 rawPayout, uint256 rawSeed, uint256 rawShares) internal {
         _deploy(decimals);
-        uint256 payout = bound(uint256(rawPayout), 1, 10 ** decimals);
-        uint256 shareCount = bound(uint256(rawShares), 1, 90);
+        uint256 payout = bound(rawPayout, 1, 1e30);
+        uint256 seed = bound(rawSeed, payout, 1e30);
         up = new UpDownRounds(address(this), reader, address(token), payout);
+        token.mint(address(this), seed);
+        token.mint(alice, seed);
         token.approve(address(up), type(uint256).max);
         vm.prank(alice);
         token.approve(address(up), type(uint256).max);
-        up.fund(payout * 1000);
-        up.seedRound(payout * 100, 1e30, 10, 4);
-        uint256 cost = up.quote(1, UpDownRounds.Side.Up, shareCount * 1 ether);
+        up.fund(seed);
+        up.seedRound(seed, 1e30, 10, 4);
+        UpDownRounds.Round memory round = up.round(1);
+        uint256 shares = bound(rawShares, 1, round.sharesPerSide - round.upSold);
+        uint256 cost = up.quote(1, UpDownRounds.Side.Up, shares);
         uint256 beforeAlice = token.balanceOf(alice);
         vm.prank(alice);
-        up.buy(1, UpDownRounds.Side.Up, shareCount * 1 ether, cost);
+        up.buy(1, UpDownRounds.Side.Up, shares, cost);
         vm.warp(110);
         vm.roll(15);
         up.captureBoundary(1);
@@ -240,9 +267,10 @@ contract StakeTokenBehaviorTest is Test {
         vm.warp(130);
         vm.roll(25);
         up.settle(1);
+        uint256 expected = Math.mulDiv(shares, payout, 1 ether);
         vm.prank(alice);
-        assertEq(up.claim(1), shareCount * payout);
-        assertEq(token.balanceOf(alice), beforeAlice - cost + shareCount * payout);
+        assertEq(up.claim(1), expected);
+        assertEq(token.balanceOf(alice), beforeAlice - cost + expected);
     }
 
     function testFuzzSixDecimalPayouts(uint96 amount) public {

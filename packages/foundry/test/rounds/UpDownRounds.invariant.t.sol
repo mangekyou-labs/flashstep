@@ -1,12 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 import { Test } from "forge-std/Test.sol";
+import { StakeTestBase } from "../stake/StakeTestBase.sol";
+import { StakeAsset } from "../../contracts/StakeAsset.sol";
 import { StdInvariant } from "forge-std/StdInvariant.sol";
 import { UpDownRounds } from "../../contracts/UpDownRounds.sol";
 import { BasePoolReader } from "../../contracts/readings/BasePoolReader.sol";
 import { MockBasePool, MockReadingToken } from "../mocks/MockBasePool.sol";
 
-contract RoundHandler is Test {
+contract RoundHandler is StakeTestBase {
     UpDownRounds public market;
     MockBasePool public pool;
     uint256 public stakes;
@@ -17,6 +19,8 @@ contract RoundHandler is Test {
 
     constructor(UpDownRounds market_, MockBasePool pool_) {
         market = market_;
+        _setStakeToken(market_.i_stakeToken());
+        _register(address(market_), address(this));
         pool = pool_;
     }
 
@@ -30,11 +34,11 @@ contract RoundHandler is Test {
         address player = players[rawPlayer % 3];
         UpDownRounds.Side side = up ? UpDownRounds.Side.Up : UpDownRounds.Side.Down;
         uint256 cost = market.quote(1, side, shares);
-        vm.deal(player, player.balance + cost);
-        uint256 beforeBalance = player.balance;
+        _deal(player, _balance(player) + cost);
+        uint256 beforeBalance = _balance(player);
         vm.prank(player);
-        market.buy{ value: cost }(1, side, shares, cost);
-        stakes += beforeBalance - player.balance;
+        market.buy{ value: _value(cost) }(1, side, shares, cost);
+        stakes += beforeBalance - _balance(player);
         ++buys;
     }
 
@@ -60,20 +64,21 @@ contract RoundHandler is Test {
     function claim(uint256 rawPlayer) external {
         if (market.phase(1) != UpDownRounds.Phase.Settled) return;
         address player = players[rawPlayer % 3];
-        uint256 beforeBalance = player.balance;
+        uint256 beforeBalance = _balance(player);
         vm.prank(player);
         market.claim(1);
-        uint256 received = player.balance - beforeBalance;
+        uint256 received = _balance(player) - beforeBalance;
         claims += received;
         if (received != 0) ++paidClaims;
     }
 }
 
-contract UpDownRoundsInvariantTest is StdInvariant, Test {
+contract UpDownRoundsInvariantTest is StdInvariant, StakeTestBase {
     RoundHandler handler;
     UpDownRounds market;
 
-    function setUp() public {
+    function setUp() public virtual {
+        _initStakeToken();
         vm.warp(100);
         vm.roll(10);
         MockReadingToken base = new MockReadingToken(18, 1e18);
@@ -81,9 +86,9 @@ contract UpDownRoundsInvariantTest is StdInvariant, Test {
         MockBasePool pool = new MockBasePool(address(base), address(quoteToken));
         pool.write(0);
         BasePoolReader reader = new BasePoolReader(address(pool), address(base), 4);
-        market = new UpDownRounds(address(this), reader);
-        vm.deal(address(this), 1 ether);
-        market.fund{ value: 1 ether }();
+        market = _newUpDown(address(this), reader);
+        _deal(address(this), 1 ether);
+        market.fund{ value: _value(1 ether) }(1 ether);
         market.seedRound(1 ether, 100 ether, 10, 4);
         handler = new RoundHandler(market, pool);
         bytes4[] memory selectors = new bytes4[](4);
@@ -101,7 +106,7 @@ contract UpDownRoundsInvariantTest is StdInvariant, Test {
     }
 
     function invariantETHHeldEqualsSeedPlusStakesMinusPaidClaims() public view {
-        assertEq(address(market).balance, 1 ether + handler.stakes() - handler.claims());
+        assertEq(_balance(address(market)), 1 ether + handler.stakes() - handler.claims());
     }
 
     function invariantEveryOutstandingWinningClaimIsBacked() public view {
@@ -109,6 +114,12 @@ contract UpDownRoundsInvariantTest is StdInvariant, Test {
         for (uint256 i; i < 3; ++i) {
             owed += market.claimable(1, handler.players(i));
         }
-        assertLe(owed, address(market).balance);
+        assertLe(owed, _balance(address(market)));
+    }
+}
+
+contract UpDownRoundsInvariantTestERC20 is UpDownRoundsInvariantTest {
+    function usesToken() internal pure override returns (bool) {
+        return true;
     }
 }

@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
+import { StakeAsset } from "../../contracts/StakeAsset.sol";
 import { RoundFixture } from "./RoundFixture.sol";
 import { UpDownRounds } from "../../contracts/UpDownRounds.sol";
 import { BasePoolReader } from "../../contracts/readings/BasePoolReader.sol";
@@ -17,7 +18,7 @@ contract UpDownRoundsTest is RoundFixture {
     function testWinningClaimAndLosingAndRepeatedClaims() public {
         uint256 paid = buyAs(alice, UpDownRounds.Side.Up, 1e18);
         buyAs(bob, UpDownRounds.Side.Down, 1e18);
-        assertEq(alice.balance, 100 ether - paid);
+        assertEq(_balance(alice), 100 ether - paid);
         finish(100);
         assertEq(uint256(market.phase(1)), uint256(UpDownRounds.Phase.Settled));
         UpDownRounds.Round memory r = market.round(1);
@@ -25,10 +26,10 @@ contract UpDownRoundsTest is RoundFixture {
         assertEq(r.startReading.price, 1e36);
         assertEq(market.claimable(1, alice), 0.01 ether);
         assertEq(market.claimable(1, bob), 0);
-        uint256 beforeBalance = alice.balance;
+        uint256 beforeBalance = _balance(alice);
         vm.prank(alice);
         market.claim(1);
-        assertEq(alice.balance - beforeBalance, 0.01 ether);
+        assertEq(_balance(alice) - beforeBalance, 0.01 ether);
         assertEq(market.claimable(1, alice), 0);
         vm.prank(alice);
         assertEq(market.claim(1), 0);
@@ -47,10 +48,10 @@ contract UpDownRoundsTest is RoundFixture {
     function testTieRefundsExactlyTheBuyCost() public {
         uint256 paid = buyAs(alice, UpDownRounds.Side.Up, 1e18);
         finish(0);
-        uint256 balance = alice.balance;
+        uint256 balance = _balance(alice);
         vm.prank(alice);
         market.claim(1);
-        assertEq(alice.balance - balance, paid);
+        assertEq(_balance(alice) - balance, paid);
     }
 
     function testBuyAtCutoffAndAfterWindowReverts() public {
@@ -69,9 +70,10 @@ contract UpDownRoundsTest is RoundFixture {
         buyAs(bob, UpDownRounds.Side.Up, 5e18);
         vm.expectRevert(UpDownRounds.SlippageExceeded.selector);
         vm.prank(alice);
-        market.buy{ value: oldQuote }(1, UpDownRounds.Side.Up, 1e18, oldQuote);
+        market.buy{ value: _value(oldQuote) }(1, UpDownRounds.Side.Up, 1e18, oldQuote);
         uint256 freshQuote = market.quote(1, UpDownRounds.Side.Up, 1e18);
-        vm.expectRevert(UpDownRounds.IncorrectPayment.selector);
+        if (address(stakeToken) != address(0)) vm.deal(alice, freshQuote + 1);
+        vm.expectRevert(StakeAsset.IncorrectPayment.selector);
         vm.prank(alice);
         market.buy{ value: freshQuote + 1 }(1, UpDownRounds.Side.Up, 1e18, freshQuote);
         assertEq(market.positionOf(1, alice).paid, 0);
@@ -103,7 +105,7 @@ contract UpDownRoundsTest is RoundFixture {
     function testFundingAndSeedingAreOwnerOnly() public {
         vm.expectRevert(abi.encodeWithSignature("OwnableUnauthorizedAccount(address)", alice));
         vm.prank(alice);
-        market.fund{ value: 1 ether }();
+        market.fund{ value: _value(1 ether) }(1 ether);
         vm.expectRevert(abi.encodeWithSignature("OwnableUnauthorizedAccount(address)", alice));
         vm.prank(alice);
         market.seedRound(1 ether, 1 ether, 10, 4);
@@ -151,17 +153,23 @@ contract UpDownRoundsTest is RoundFixture {
     }
 
     function testPositionPredictsActualPayoutAndSpentETH() public {
-        uint256 beforeBalance = alice.balance;
+        uint256 beforeBalance = _balance(alice);
         buyAs(alice, UpDownRounds.Side.Up, 3e18);
         buyAs(alice, UpDownRounds.Side.Down, 2e18);
         UpDownRounds.Position memory position = market.positionOf(1, alice);
-        assertEq(position.paid, beforeBalance - alice.balance);
+        assertEq(position.paid, beforeBalance - _balance(alice));
         finish(100);
         uint256 predicted = position.up * 0.01 ether / 1e18;
         assertEq(market.claimable(1, alice), predicted);
-        beforeBalance = alice.balance;
+        beforeBalance = _balance(alice);
         vm.prank(alice);
         market.claim(1);
-        assertEq(alice.balance - beforeBalance, predicted);
+        assertEq(_balance(alice) - beforeBalance, predicted);
+    }
+}
+
+contract UpDownRoundsTestERC20 is UpDownRoundsTest {
+    function usesToken() internal pure override returns (bool) {
+        return true;
     }
 }

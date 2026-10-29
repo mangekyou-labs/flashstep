@@ -11,7 +11,7 @@ contract ThresholdPotsTest is ThresholdFixture {
         stakeAs(alice, 1, ThresholdPots.Side.Yes, 2 ether);
         assertEq(market.round(1).pot, 4 ether);
         assertEq(market.reservedBalance(), 4 ether);
-        assertEq(address(market).balance, 12 ether);
+        assertEq(_balance(address(market)), 12 ether);
     }
 
     function testOpeningStakeAndPlayersShareThePotWithNoFee() public {
@@ -27,7 +27,7 @@ contract ThresholdPotsTest is ThresholdFixture {
         assertEq(market.claimable(1, bob), 0);
         vm.prank(alice);
         assertEq(market.claim(1), 4 ether);
-        assertEq(alice.balance, 102 ether);
+        assertEq(_balance(alice), 102 ether);
         assertEq(market.claim(1), 2 ether);
         vm.prank(alice);
         assertEq(market.claim(1), 0);
@@ -39,7 +39,7 @@ contract ThresholdPotsTest is ThresholdFixture {
         vm.expectRevert(ThresholdPots.InsufficientFunding.selector);
         market.withdrawFunding(8 ether + 1);
         market.withdrawFunding(8 ether);
-        assertEq(address(market).balance, 2 ether);
+        assertEq(_balance(address(market)), 2 ether);
         assertEq(market.reservedBalance(), 2 ether);
     }
 
@@ -63,7 +63,7 @@ contract ThresholdPotsTest is ThresholdFixture {
         assertEq(market.dustCredit(address(this)), 1);
         assertEq(market.dustCredit(carol), 0);
         assertEq(market.withdrawDust(), 1);
-        assertEq(address(market).balance, 0);
+        assertEq(_balance(address(market)), 0);
     }
 
     function testSettingsApplyToNextRoundAndStopPreservesCurrent() public {
@@ -97,7 +97,7 @@ contract ThresholdPotsTest is ThresholdFixture {
         vm.expectRevert(ThresholdPots.StakeCapExceeded.selector);
         stakeAs(alice, 1, ThresholdPots.Side.Yes, 1);
         assertEq(market.positionOf(1, alice).paid, 10 ether);
-        market.stake{ value: 10 ether }(1, ThresholdPots.Side.Yes);
+        market.stake{ value: _value(10 ether) }(1, ThresholdPots.Side.Yes, 10 ether);
         assertEq(market.positionOf(1, address(this)).yes, 11 ether);
         vm.warp(110);
         vm.expectRevert(ThresholdPots.OutsideTrading.selector);
@@ -200,7 +200,7 @@ contract ThresholdPotsTest is ThresholdFixture {
         assertEq(market.owner(), address(0));
         finish(1);
         assertEq(market.claim(1), 2 ether);
-        assertEq(address(market).balance, 0);
+        assertEq(_balance(address(market)), 0);
     }
 
     function testRenouncePreservesOriginalPayerOpeningAndDustClaims() public {
@@ -219,7 +219,7 @@ contract ThresholdPotsTest is ThresholdFixture {
         assertEq(market.dustCredit(address(this)), 1);
         assertEq(market.dustCredit(address(0)), 0);
         assertEq(market.withdrawDust(), 1);
-        assertEq(address(market).balance, 0);
+        assertEq(_balance(address(market)), 0);
     }
 
     function testRenouncedLazyRoundsRequireNoOpeningPrefunding() public {
@@ -232,19 +232,19 @@ contract ThresholdPotsTest is ThresholdFixture {
         assertEq(market.reservedBalance(), 2 ether);
         assertFalse(market.round(2).materialized);
 
-        ThresholdPots zeroOpening = new ThresholdPots(address(this), reader);
+        ThresholdPots zeroOpening = _newThreshold(address(this), reader);
         ThresholdPots.CampaignSettings memory s = settings();
         s.openingStake = 0;
         zeroOpening.seedRound(s);
         zeroOpening.renounceOwnership();
         vm.warp(120);
         vm.prank(alice);
-        zeroOpening.stake{ value: 1 }(2, ThresholdPots.Side.Yes);
+        zeroOpening.stake{ value: _value(1) }(2, ThresholdPots.Side.Yes, 1);
         vm.warp(134);
         zeroOpening.settle(2);
         vm.prank(alice);
         assertEq(zeroOpening.claim(2), 1);
-        assertEq(address(zeroOpening).balance, 0);
+        assertEq(_balance(address(zeroOpening)), 0);
     }
 
     function testZeroOpeningAfterRenounceCreditsDustToLastPayer() public {
@@ -267,6 +267,12 @@ contract ThresholdPotsTest is ThresholdFixture {
         assertEq(market.dustCredit(address(this)), 1);
         assertEq(market.dustCredit(address(0)), 0);
         assertEq(market.withdrawDust(), 1);
-        assertEq(address(market).balance, 0);
+        assertEq(_balance(address(market)), 0);
+    }
+}
+
+contract ThresholdPotsTestERC20 is ThresholdPotsTest {
+    function usesToken() internal pure override returns (bool) {
+        return true;
     }
 }

@@ -8,34 +8,34 @@ contract UpDownCampaignTest is RoundFixture {
     function testSellPaysQuoteAndTieRefundsOnlyNetPaid() public {
         uint256 paid = buyAs(alice, UpDownRounds.Side.Up, 20e18);
         uint256 proceeds = market.quoteSell(1, UpDownRounds.Side.Up, 10e18);
-        uint256 beforeBalance = alice.balance;
+        uint256 beforeBalance = _balance(alice);
         vm.prank(alice);
         market.sell(1, UpDownRounds.Side.Up, 10e18, proceeds);
-        assertEq(alice.balance - beforeBalance, proceeds);
+        assertEq(_balance(alice) - beforeBalance, proceeds);
         finish(0);
         assertEq(market.claimable(1, alice), paid - proceeds);
-        beforeBalance = alice.balance;
+        beforeBalance = _balance(alice);
         vm.prank(alice);
         market.claim(1);
-        assertEq(alice.balance - beforeBalance, paid - proceeds);
+        assertEq(_balance(alice) - beforeBalance, paid - proceeds);
     }
 
     function testOwnerWithdrawsOnlyUncommittedFundingAndSettledSurplus() public {
         buyAs(alice, UpDownRounds.Side.Up, 1e18);
-        uint256 playerPaid = 100 ether - alice.balance;
-        uint256 beforeBalance = address(this).balance;
+        uint256 playerPaid = 100 ether - _balance(alice);
+        uint256 beforeBalance = _balance(address(this));
         market.withdrawLiquidity(9 ether);
-        assertEq(address(this).balance - beforeBalance, 9 ether);
+        assertEq(_balance(address(this)) - beforeBalance, 9 ether);
         vm.expectRevert(UpDownRounds.InsufficientFunding.selector);
         market.withdrawLiquidity(1);
         finish(100);
         uint256 owed = market.claimable(1, alice);
         assertEq(owed, 0.01 ether);
         market.withdrawLiquidity(1 ether + playerPaid - owed);
-        assertEq(address(market).balance, owed);
+        assertEq(_balance(address(market)), owed);
         vm.prank(alice);
         market.claim(1);
-        assertEq(address(market).balance, 0);
+        assertEq(_balance(address(market)), 0);
     }
 
     function testNextRoundTradesWhilePreviousWindowKeepsItsBookAndResult() public {
@@ -47,7 +47,7 @@ contract UpDownCampaignTest is RoundFixture {
         pool.write(100);
         uint256 cost = market.quote(2, UpDownRounds.Side.Down, 2e18);
         vm.prank(bob);
-        market.buy{ value: cost }(2, UpDownRounds.Side.Down, 2e18, cost);
+        market.buy{ value: _value(cost) }(2, UpDownRounds.Side.Down, 2e18, cost);
         assertEq(market.positionOf(1, bob).down, 0);
         vm.warp(114);
         vm.roll(17);
@@ -92,7 +92,7 @@ contract UpDownCampaignTest is RoundFixture {
         market.stopCampaign();
         uint256 cost = market.quote(2, UpDownRounds.Side.Down, 1e18);
         vm.prank(bob);
-        market.buy{ value: cost }(2, UpDownRounds.Side.Down, 1e18, cost);
+        market.buy{ value: _value(cost) }(2, UpDownRounds.Side.Down, 1e18, cost);
         vm.warp(114);
         vm.roll(17);
         market.captureBoundary(1);
@@ -125,10 +125,10 @@ contract UpDownCampaignTest is RoundFixture {
         assertGt(proceeds, paid + later);
         finish(0);
         assertEq(market.claimable(1, alice), 0);
-        uint256 beforeBalance = alice.balance;
+        uint256 beforeBalance = _balance(alice);
         vm.prank(alice);
         assertEq(market.claim(1), 0);
-        assertEq(alice.balance, beforeBalance);
+        assertEq(_balance(alice), beforeBalance);
     }
 
     function testSellDeadlineBalanceAndMinimumProceeds() public {
@@ -167,7 +167,7 @@ contract UpDownCampaignTest is RoundFixture {
         assertEq(market.currentRound(), 100001);
         uint256 cost = market.quote(100001, UpDownRounds.Side.Up, 1e18);
         vm.prank(alice);
-        market.buy{ value: cost }(100001, UpDownRounds.Side.Up, 1e18, cost);
+        market.buy{ value: _value(cost) }(100001, UpDownRounds.Side.Up, 1e18, cost);
         assertEq(market.fundingBalance(), 8 ether);
         assertEq(market.positionOf(100001, alice).up, 1e18);
     }
@@ -184,7 +184,7 @@ contract UpDownCampaignTest is RoundFixture {
         assertEq(market.currentRound(), 3);
         uint256 cost = market.quote(3, UpDownRounds.Side.Up, 1e18);
         vm.prank(alice);
-        market.buy{ value: cost }(3, UpDownRounds.Side.Up, 1e18, cost);
+        market.buy{ value: _value(cost) }(3, UpDownRounds.Side.Up, 1e18, cost);
         vm.warp(130);
         assertEq(market.currentRound(), 0);
         vm.expectRevert(UpDownRounds.UnknownRound.selector);
@@ -200,7 +200,7 @@ contract UpDownCampaignTest is RoundFixture {
         assertGt(paid + cost, 1 ether);
         vm.expectRevert(UpDownRounds.StakeCapExceeded.selector);
         vm.prank(alice);
-        market.buy{ value: cost }(1, UpDownRounds.Side.Up, 90e18, cost);
+        market.buy{ value: _value(cost) }(1, UpDownRounds.Side.Up, 90e18, cost);
     }
 
     function testReaderAndRepeatedSettingsChangesSnapshotAtNextRound() public {
@@ -226,4 +226,10 @@ contract UpDownCampaignTest is RoundFixture {
     }
 
     receive() external payable { }
+}
+
+contract UpDownCampaignTestERC20 is UpDownCampaignTest {
+    function usesToken() internal pure override returns (bool) {
+        return true;
+    }
 }

@@ -1,12 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 import { Test } from "forge-std/Test.sol";
+import { StakeTestBase } from "../stake/StakeTestBase.sol";
+import { StakeAsset } from "../../contracts/StakeAsset.sol";
 import { StdInvariant } from "forge-std/StdInvariant.sol";
 import { UpDownRounds } from "../../contracts/UpDownRounds.sol";
 import { BasePoolReader } from "../../contracts/readings/BasePoolReader.sol";
 import { MockBasePool, MockReadingToken } from "../mocks/MockBasePool.sol";
 
-contract CampaignHandler is Test {
+contract CampaignHandler is StakeTestBase {
     UpDownRounds public market;
     BasePoolReader public reader;
     MockBasePool public pool;
@@ -28,11 +30,13 @@ contract CampaignHandler is Test {
     uint256 public clock = 100;
     uint256 public height = 10;
 
-    constructor(BasePoolReader reader_, MockBasePool pool_) payable {
+    constructor(BasePoolReader reader_, MockBasePool pool_, address asset) payable {
+        _setStakeToken(asset);
+        _deal(address(this), 12 ether);
         reader = reader_;
         pool = pool_;
-        market = new UpDownRounds(address(this), reader);
-        market.fund{ value: msg.value }();
+        market = _newUpDown(address(this), reader);
+        market.fund{ value: _value(12 ether) }(12 ether);
         market.seedRound(1 ether, 1e30, 10, 4);
         market.setCampaignSettings(1 ether, 1e30, 10, 14, 260, reader);
         _track(1);
@@ -60,12 +64,12 @@ contract CampaignHandler is Test {
         uint256 shares = bound(rawShares, 1, reserve);
         uint256 cost = market.quote(id, side, shares);
         address player = players[rawPlayer % 3];
-        vm.deal(player, player.balance + cost);
-        uint256 beforeBalance = player.balance;
+        _deal(player, _balance(player) + cost);
+        uint256 beforeBalance = _balance(player);
         vm.prank(player);
-        try market.buy{ value: cost }(id, side, shares, cost) {
+        try market.buy{ value: _value(cost) }(id, side, shares, cost) {
             _track(id);
-            uint256 sent = beforeBalance - player.balance;
+            uint256 sent = beforeBalance - _balance(player);
             escrow[id] += sent;
             paid[id][player] += sent;
             stakes += sent;
@@ -75,7 +79,7 @@ contract CampaignHandler is Test {
                 bytes4(reason) == UpDownRounds.StakeCapExceeded.selector
                     || bytes4(reason) == UpDownRounds.InsufficientReserve.selector
             );
-            assertEq(player.balance, beforeBalance);
+            assertEq(_balance(player), beforeBalance);
             ++expectedRefusals;
         }
     }
@@ -90,17 +94,17 @@ contract CampaignHandler is Test {
         uint256 shares = bound(rawShares, 1, owned);
         UpDownRounds.Side side = up ? UpDownRounds.Side.Up : UpDownRounds.Side.Down;
         uint256 proceeds = market.quoteSell(id, side, shares);
-        uint256 beforeBalance = player.balance;
+        uint256 beforeBalance = _balance(player);
         vm.prank(player);
         try market.sell(id, side, shares, proceeds) {
-            uint256 received = player.balance - beforeBalance;
+            uint256 received = _balance(player) - beforeBalance;
             escrow[id] -= received;
             soldFor[id][player] += received;
             sellPayments += received;
             ++successfulSells;
         } catch (bytes memory reason) {
             assertEq(bytes4(reason), UpDownRounds.InsufficientReserve.selector);
-            assertEq(player.balance, beforeBalance);
+            assertEq(_balance(player), beforeBalance);
             ++expectedRefusals;
         }
     }
@@ -141,10 +145,10 @@ contract CampaignHandler is Test {
         address player = players[rawPlayer % 3];
         uint256 id = rounds[rawRound % rounds.length];
         if (market.phase(id) != UpDownRounds.Phase.Settled) return;
-        uint256 beforeBalance = player.balance;
+        uint256 beforeBalance = _balance(player);
         vm.prank(player);
         market.claim(id);
-        uint256 received = player.balance - beforeBalance;
+        uint256 received = _balance(player) - beforeBalance;
         claims += received;
         if (received != 0) ++successfulClaims;
     }
@@ -152,9 +156,9 @@ contract CampaignHandler is Test {
     function withdraw(uint256 rawAmount) external {
         uint256 available = market.fundingBalance();
         if (available == 0) return;
-        uint256 beforeBalance = address(this).balance;
+        uint256 beforeBalance = _balance(address(this));
         market.withdrawLiquidity(bound(rawAmount, 1, available));
-        withdrawals += address(this).balance - beforeBalance;
+        withdrawals += _balance(address(this)) - beforeBalance;
     }
 
     function configure(uint256 rawSeed, uint256 rawCap, uint256 rawTrading, uint256 rawWindow) external {
@@ -183,11 +187,12 @@ contract CampaignHandler is Test {
     receive() external payable { }
 }
 
-contract UpDownCampaignInvariantTest is StdInvariant, Test {
+contract UpDownCampaignInvariantTest is StdInvariant, StakeTestBase {
     CampaignHandler handler;
     UpDownRounds market;
 
-    function setUp() public {
+    function setUp() public virtual {
+        _initStakeToken();
         vm.warp(100);
         vm.roll(10);
         MockReadingToken base = new MockReadingToken(18, 1e18);
@@ -195,8 +200,8 @@ contract UpDownCampaignInvariantTest is StdInvariant, Test {
         MockBasePool pool = new MockBasePool(address(base), address(quoteToken));
         pool.write(0);
         BasePoolReader reader = new BasePoolReader(address(pool), address(base), 4);
-        vm.deal(address(this), 12 ether);
-        handler = new CampaignHandler{ value: 12 ether }(reader, pool);
+        _deal(address(this), 12 ether);
+        handler = new CampaignHandler{ value: _value(12 ether) }(reader, pool, address(stakeToken));
         market = handler.market();
         // Every search starts with real buys and sells in two overlapping books.
         handler.buy(0, 2e18, true);
@@ -237,12 +242,12 @@ contract UpDownCampaignInvariantTest is StdInvariant, Test {
                 owed += roundOwed;
             }
         }
-        assertEq(address(market).balance, escrow + owed + market.fundingBalance());
+        assertEq(_balance(address(market)), escrow + owed + market.fundingBalance());
     }
 
     function invariantEveryWeiHasObservedSourceAndDestination() public view {
         assertEq(
-            address(market).balance,
+            _balance(address(market)),
             12 ether + handler.stakes() - handler.sellPayments() - handler.claims() - handler.withdrawals()
         );
     }
@@ -264,15 +269,15 @@ contract UpDownCampaignInvariantTest is StdInvariant, Test {
             }
         }
         // Once every book settles, this is the ticket's literal equality: no locked reserve remains.
-        assertEq(address(market).balance, owed + market.fundingBalance());
+        assertEq(_balance(address(market)), owed + market.fundingBalance());
         handler.withdraw(type(uint256).max);
-        assertEq(address(market).balance, owed);
+        assertEq(_balance(address(market)), owed);
         for (uint256 i; i < handler.roundCount(); ++i) {
             for (uint256 player; player < 3; ++player) {
                 handler.claim(player, i);
             }
         }
-        assertEq(address(market).balance, 0);
+        assertEq(_balance(address(market)), 0);
         assertGe(handler.successfulBuys(), 2);
         assertGe(handler.successfulSells(), 2);
         assertGe(handler.successfulSettlements(), 2);
@@ -281,5 +286,11 @@ contract UpDownCampaignInvariantTest is StdInvariant, Test {
         emit log_named_uint("paid claims", handler.successfulClaims());
         emit log_named_uint("settled books", handler.successfulSettlements());
         emit log_named_uint("expected cap/backing refusals", handler.expectedRefusals());
+    }
+}
+
+contract UpDownCampaignInvariantTestERC20 is UpDownCampaignInvariantTest {
+    function usesToken() internal pure override returns (bool) {
+        return true;
     }
 }

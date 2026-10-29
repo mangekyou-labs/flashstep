@@ -1,13 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+import { StakeAsset } from "./StakeAsset.sol";
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 import { BasePoolReader } from "./readings/BasePoolReader.sol";
 
-/// @notice ETH Campaigns with scheduled share books and block-pinned TWAP settlement.
-contract UpDownRounds is Ownable, ReentrancyGuard {
+/// @notice Stake-token Campaigns with scheduled share books and block-pinned TWAP settlement.
+contract UpDownRounds is Ownable, ReentrancyGuard, StakeAsset {
     enum Side {
         Up,
         Down
@@ -78,7 +79,6 @@ contract UpDownRounds is Ownable, ReentrancyGuard {
     error StakeCapExceeded();
     error InsufficientReserve();
     error SlippageExceeded();
-    error IncorrectPayment();
     error InvalidAmount();
     error PayerCannotBuy();
     error InsufficientShares();
@@ -87,13 +87,12 @@ contract UpDownRounds is Ownable, ReentrancyGuard {
     error TooEarlyToSettle();
     error AlreadySettled();
     error NotSettled();
-    error TransferFailed();
 
     /// @notice Supported Base block cadence; durations must preserve exact boundary timestamps.
     uint256 public constant BLOCK_INTERVAL = 2;
     uint256 public constant SHARE_SCALE = 1e18;
-    uint256 public constant PAYOUT = 0.01 ether;
-    uint256 public constant MIN_SEED = 0.01 ether;
+    uint256 public immutable PAYOUT;
+    uint256 public immutable MIN_SEED;
     uint256 public constant MAX_SEED = 1e30;
     uint256 public constant MAX_STAKE_CAP = 1e30;
     BasePoolReader public immutable i_reader;
@@ -117,18 +116,25 @@ contract UpDownRounds is Ownable, ReentrancyGuard {
     event Settled(uint256 indexed roundId, Result result, uint256 startPrice, uint256 endPrice);
     event Claimed(uint256 indexed roundId, address indexed player, uint256 amount);
 
-    constructor(address payer, BasePoolReader reader) Ownable(payer) {
+    constructor(address payer, BasePoolReader reader, address stakeToken, uint256 payout)
+        Ownable(payer)
+        StakeAsset(stakeToken)
+    {
+        if (payout == 0 || payout > MAX_SEED) revert InvalidConfiguration();
+        PAYOUT = payout;
+        MIN_SEED = payout;
         if (address(reader).code.length == 0) revert InvalidConfiguration();
         i_reader = reader;
     }
 
-    function fund() external payable onlyOwner {
-        if (msg.value == 0) revert InvalidAmount();
-        fundingBalance += msg.value;
-        emit Funded(msg.sender, msg.value);
+    function fund(uint256 amount) external payable onlyOwner nonReentrant {
+        if (amount == 0) revert InvalidAmount();
+        fundingBalance += amount;
+        _takeStake(amount);
+        emit Funded(msg.sender, amount);
     }
 
-    /// @notice Start the Campaign and seed its first Round from prefunded ETH.
+    /// @notice Start the Campaign and seed its first Round from prefunded stake tokens.
     function seedRound(uint256 seed, uint256 stakeCap, uint32 tradingSeconds, uint32 windowSeconds) external onlyOwner {
         if (s_seeded) revert RoundAlreadySeeded();
         CampaignSettings memory settings =
@@ -203,8 +209,8 @@ contract UpDownRounds is Ownable, ReentrancyGuard {
         return s_positions[roundId][player];
     }
 
-    /// @notice ETH cost for exact shares, using Speedrun's average before/after sold-share chance.
-    /// Shares use 18 decimals, ETH uses wei. Cost rounds upward to avoid free dust buys.
+    /// @notice Stake-token cost for exact shares, using Speedrun's average before/after sold-share chance.
+    /// Shares use 18 decimals, amounts use raw stake-token units. Cost rounds upward to avoid free dust buys.
     function quote(uint256 roundId, Side side, uint256 shares) public view returns (uint256) {
         Round memory r = _viewRound(roundId);
         if (shares == 0) revert InvalidAmount();
@@ -226,7 +232,6 @@ contract UpDownRounds is Ownable, ReentrancyGuard {
         if (msg.sender == owner()) revert PayerCannotBuy();
         uint256 cost = quote(roundId, side, shares);
         if (cost > maxCost) revert SlippageExceeded();
-        if (msg.value != cost) revert IncorrectPayment();
         Round storage r = _materialize(roundId);
         Position storage p = s_positions[roundId][msg.sender];
         if (p.bought + cost > r.stakeCap) revert StakeCapExceeded();
@@ -248,10 +253,11 @@ contract UpDownRounds is Ownable, ReentrancyGuard {
         r.collateral += cost;
         reservedBalance += cost;
         _checkBacking(r);
+        _takeStake(cost);
         emit Bought(roundId, msg.sender, side, shares, cost);
     }
 
-    /// @notice ETH proceeds for exact shares. A sell rounds down to wei.
+    /// @notice Stake-token proceeds for exact shares. A sell rounds down to raw stake-token units.
     function quoteSell(uint256 roundId, Side side, uint256 shares) public view returns (uint256) {
         Round memory r = _viewRound(roundId);
         if (shares == 0) revert InvalidAmount();
@@ -295,8 +301,7 @@ contract UpDownRounds is Ownable, ReentrancyGuard {
         reservedBalance -= proceeds;
         _checkBacking(r);
         emit Sold(roundId, msg.sender, side, shares, proceeds);
-        (bool success,) = msg.sender.call{ value: proceeds }("");
-        if (!success) revert TransferFailed();
+        _sendStake(msg.sender, proceeds);
     }
 
     /// @notice Anyone must capture at the scheduled boundary timestamp. A late price is never substituted.
@@ -349,8 +354,7 @@ contract UpDownRounds is Ownable, ReentrancyGuard {
         s_rounds[roundId].collateral -= amount;
         reservedBalance -= amount;
         emit Claimed(roundId, msg.sender, amount);
-        (bool success,) = msg.sender.call{ value: amount }("");
-        if (!success) revert TransferFailed();
+        _sendStake(msg.sender, amount);
     }
 
     /// @notice Withdraw only uncommitted funding and surplus released by settlement.
@@ -359,8 +363,7 @@ contract UpDownRounds is Ownable, ReentrancyGuard {
         if (amount > fundingBalance) revert InsufficientFunding();
         fundingBalance -= amount;
         emit LiquidityWithdrawn(msg.sender, amount);
-        (bool success,) = msg.sender.call{ value: amount }("");
-        if (!success) revert TransferFailed();
+        _sendStake(msg.sender, amount);
     }
 
     function _checkBacking(Round storage r) private view {

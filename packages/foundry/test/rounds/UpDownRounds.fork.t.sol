@@ -5,6 +5,40 @@ import { UpDownRounds } from "../../contracts/UpDownRounds.sol";
 import { BasePoolReader } from "../../contracts/readings/BasePoolReader.sol";
 
 contract UpDownRoundsForkTest is Test {
+    function testMissedRealPoolBoundaryRefundsWithoutUsingLaterReading() public {
+        string memory rpc = vm.envOr("BASE_RPC_URL", string(""));
+        if (bytes(rpc).length == 0) {
+            vm.skip(true);
+            return;
+        }
+        vm.createSelectFork(rpc, 35_000_000);
+        BasePoolReader reader = new BasePoolReader(
+            0xd0b53D9277642d899DF5C87A3966A349A798F224, 0x4200000000000000000000000000000000000006, 30
+        );
+        UpDownRounds market = new UpDownRounds(address(this), reader);
+        vm.makePersistent(address(market), address(reader));
+        vm.deal(address(this), 1 ether);
+        market.fund{ value: 1 ether }();
+        market.seedRound(1 ether, 1 ether, 10, 4);
+        address player = address(0xA11CE);
+        uint256 cost = market.quote(1, UpDownRounds.Side.Down, 1e18);
+        vm.deal(player, cost);
+        vm.prank(player);
+        market.buy{ value: cost }(1, UpDownRounds.Side.Down, 1e18, cost);
+        vm.rollFork(35_000_005);
+        market.captureBoundary(1);
+        // Nobody captures at block 35,000,007; a later real TWAP cannot replace it.
+        vm.rollFork(35_000_037);
+        assertGt(reader.capture().price, 0);
+        vm.expectRevert(BasePoolReader.NoValidReading.selector);
+        reader.read(35_000_007);
+        vm.prank(player);
+        assertEq(market.claim(1), cost);
+        assertEq(player.balance, cost);
+        assertEq(market.withdrawRefund(), 1 ether);
+        assertEq(address(market).balance, 0);
+    }
+
     function testRoundSettlesFromRealPinnedBasePool() public {
         string memory rpc = vm.envOr("BASE_RPC_URL", string(""));
         if (bytes(rpc).length == 0) {
@@ -46,4 +80,5 @@ contract UpDownRoundsForkTest is Test {
         assertEq(player.balance, expected);
         assertEq(address(market).balance + player.balance, 1 ether + cost);
     }
+    receive() external payable { }
 }

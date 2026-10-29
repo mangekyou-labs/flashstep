@@ -4,7 +4,9 @@
 
 **Blocked by:** 03, 04
 
-**Status:** ready-for-agent
+**Status:** in-progress
+
+**Assignee:** MrSufferer
 
 **What to build:** the stake token is fixed at deploy for both contracts: the payer's ERC-20, USDC, or ETH. Every amount (Stake cap, Opening stake, seeded liquidity) is in that token.
 

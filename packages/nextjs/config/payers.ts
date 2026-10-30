@@ -1,5 +1,14 @@
 import { Address, zeroAddress } from "viem";
 
+const knownExplorers: Record<number, string> = {
+  8453: "https://basescan.org",
+  84532: "https://sepolia.basescan.org",
+};
+/** Block explorer base URL for a chain. Local chains have none unless NEXT_PUBLIC_EXPLORER_URL is set. */
+function explorerFor(chainId: number): string {
+  return (process.env.NEXT_PUBLIC_EXPLORER_URL || knownExplorers[chainId] || "").replace(/\/+$/, "");
+}
+
 /** One config entry per payer. Addresses are fixed at build time, never taken from URL input. */
 export const payers = {
   DEGEN: {
@@ -13,6 +22,7 @@ export const payers = {
     thresholdAddress: (process.env.NEXT_PUBLIC_THRESHOLD_ADDRESS || zeroAddress) as Address,
     chainId: 31337,
     quoteTicker: "ETH",
+    explorerUrl: explorerFor(31337),
   },
   BASE: {
     name: "Base",
@@ -29,6 +39,7 @@ export const payers = {
       zeroAddress) as Address,
     chainId: 31337,
     quoteTicker: "ETH",
+    explorerUrl: explorerFor(31337),
   },
 } as const;
 export type Payer = (typeof payers)[keyof typeof payers];

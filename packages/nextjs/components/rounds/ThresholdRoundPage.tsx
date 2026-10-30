@@ -7,8 +7,10 @@ import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { BaseError, erc20Abi, formatUnits, parseUnits, zeroAddress } from "viem";
 import { useAccount, usePublicClient, useSwitchChain, useWriteContract } from "wagmi";
+import { PoolBalance, SettleTx, ShareBar } from "~~/components/rounds/ProofPanels";
 import { readingLabel } from "~~/components/rounds/ReadingChart";
 import { payerFor } from "~~/config/payers";
+import { useSettleTxs } from "~~/utils/rounds/proof";
 import { thresholdAbi, thresholdResults } from "~~/utils/rounds/thresholdAbi";
 import { phaseNames } from "~~/utils/rounds/useRound";
 import { useThresholdRound } from "~~/utils/rounds/useThresholdRound";
@@ -186,6 +188,7 @@ export function ThresholdRoundPage() {
       );
     },
   });
+  const proof = useSettleTxs(payer, "threshold", history.data);
   function findRound(event: SyntheticEvent<HTMLFormElement>) {
     event.preventDefault();
     const id = String(new FormData(event.currentTarget).get("round"));
@@ -463,6 +466,8 @@ export function ThresholdRoundPage() {
             {failure}
           </div>
         )}
+        <ShareBar payer={payer} market="threshold" roundId={data?.id || undefined} />
+        <PoolBalance payer={payer} market="threshold" />
         {!!data?.current && (
           <section className="round-history">
             <h2>Recent threshold Rounds</h2>
@@ -481,6 +486,8 @@ export function ThresholdRoundPage() {
                     <th>Round</th>
                     <th>Result</th>
                     <th>Threshold</th>
+                    <th>End Reading</th>
+                    <th>Settle tx</th>
                     <th>
                       <span className="sr-only">Action</span>
                     </th>
@@ -499,6 +506,16 @@ export function ThresholdRoundPage() {
                       </td>
                       <td>
                         {readingLabel(row.round.threshold)} {payer.quoteTicker}
+                      </td>
+                      <td>
+                        {row.round.endReading.price ? `${readingLabel(row.round.endValue)} ${payer.quoteTicker}` : "—"}
+                      </td>
+                      <td>
+                        <SettleTx
+                          payer={payer}
+                          settled={row.phase === 3 || row.phase === 4}
+                          hash={proof.data?.[String(row.id)]}
+                        />
                       </td>
                       <td>
                         <button onClick={() => setSelected(row.id)}>

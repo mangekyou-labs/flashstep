@@ -7,10 +7,12 @@ import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Address, BaseError, erc20Abi, formatUnits, parseUnits, zeroAddress } from "viem";
 import { useAccount, usePublicClient, useSwitchChain, useWriteContract } from "wagmi";
+import { PoolBalance, SettleTx, ShareBar } from "~~/components/rounds/ProofPanels";
 import { ReadingChart, readingLabel } from "~~/components/rounds/ReadingChart";
 import { ThresholdRoundPage } from "~~/components/rounds/ThresholdRoundPage";
 import { Payer, payerFor } from "~~/config/payers";
 import { roundsAbi } from "~~/utils/rounds/abi";
+import { useSettleTxs } from "~~/utils/rounds/proof";
 import { phaseNames, resultNames, useRound } from "~~/utils/rounds/useRound";
 
 function amount(value: bigint | undefined, decimals = 18) {
@@ -444,6 +446,8 @@ function UpDownRoundPage() {
             {failure}
           </div>
         )}
+        <ShareBar payer={payer} market="updown" roundId={data?.id || undefined} />
+        <PoolBalance payer={payer} market="updown" />
         {data?.current ? (
           <RecentRounds payer={payer} current={data.current} account={address} onSelect={id => setSelected(id)} />
         ) : null}
@@ -497,6 +501,7 @@ function RecentRounds({
       );
     },
   });
+  const proof = useSettleTxs(payer, "updown", history.data);
   return (
     <section className="round-history">
       <h2>Recent Rounds</h2>
@@ -512,7 +517,8 @@ function RecentRounds({
             <tr>
               <th>Round</th>
               <th>Result</th>
-              <th>Start → End</th>
+              <th>Start Reading → End Reading</th>
+              <th>Settle tx</th>
               <th>
                 <span className="sr-only">Action</span>
               </th>
@@ -532,6 +538,13 @@ function RecentRounds({
                 <td>
                   {row.round.startReading.price ? readingLabel(row.round.startReading.price) : "—"} →{" "}
                   {row.round.endReading.price ? readingLabel(row.round.endReading.price) : "—"}
+                </td>
+                <td>
+                  <SettleTx
+                    payer={payer}
+                    settled={row.phase === 3 || row.phase === 4}
+                    hash={proof.data?.[String(row.id)]}
+                  />
                 </td>
                 <td>
                   <button onClick={() => onSelect(row.id)}>

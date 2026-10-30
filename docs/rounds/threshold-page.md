@@ -43,3 +43,18 @@ View Round #1 and compare the claim button amount with the printed raw-unit `cla
 Repeat setup with `no`, `tie`, `unmatched`, `marketcap` or `usdc`, updating the environment and restarting the frontend each time. `no` lowers the pool TWAP; `tie` leaves it exactly at the threshold; `unmatched` has no Opening stake, so stake only one side and settlement needs no Reading. `marketcap` uses the eligible fixed supply and shows a threshold of 1,000,000 quote tokens. `usdc` deploys a **local six-decimal mock**, named STAKE; fund-player also mints it, allowing the real approval/stake/claim flow. Settle each scenario after browser staking. All fixture state is in ignored `output/threshold-local.json`.
 
 Run browser checks through `playwright-cli`, taking fresh snapshots before using element references. Check both brand configs, keyboard focus and 375/768/1280 widths. Browser artifacts belong under ignored `output/playwright/`.
+
+## Verified behavior
+
+The issue #9 local Anvil and `playwright-cli` run on 2026-10-30 passed:
+
+| Scenario | Browser and contract evidence |
+| --- | --- |
+| Yes win | Player staked 0.01 ETH on each side. A peer's 0.01 Yes stake lowered the held Yes payout from 0.02 to 0.016666666666666666 ETH. Settlement returned exactly 16666666666666666 raw units; browser claim succeeded and stayed Claimed after reload. |
+| Tie | Both Player stakes refunded: 0.02 ETH / 20000000000000000 raw units. Explicit Tie refund label and browser claim passed. |
+| Unmatched | One 0.01 ETH stake refunded without an end Reading. Explicit Unmatched refund label and browser claim passed. |
+| Six-decimal ERC-20 | Excess precision rejected; exact approval and 0.01 STAKE stake succeeded. Yes payout was 0.015 STAKE / 15000 raw units and browser claim succeeded. |
+| Safety and layout | Cumulative cap disabled submission, cutoff rolled to Round #2, historical staking was disabled, and 375/768/1280 widths had no horizontal overflow. Keyboard focus remained available. |
+| Display and regression | Price and market-cap questions rendered for DEGEN and BASE; market-cap threshold and current value were 1,000,000 quote tokens. Reduced-motion mode rendered normally. The original Up/Down Round #1 still showed the Player's 1 Up share. |
+
+The merged threshold and reading suites passed 120 tests, with five opt-in fork tests skipped. TypeScript and changed-file ESLint passed. Standards review found no additional issues; spec review's lazy payer Opening-stake quote issue was reproduced, fixed, and rechecked with quote → stake → settlement → claim parity.

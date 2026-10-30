@@ -8,6 +8,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Address, BaseError, erc20Abi, formatUnits, parseUnits, zeroAddress } from "viem";
 import { useAccount, usePublicClient, useSwitchChain, useWriteContract } from "wagmi";
 import { ReadingChart, readingLabel } from "~~/components/rounds/ReadingChart";
+import { ThresholdRoundPage } from "~~/components/rounds/ThresholdRoundPage";
 import { Payer, payerFor } from "~~/config/payers";
 import { roundsAbi } from "~~/utils/rounds/abi";
 import { phaseNames, resultNames, useRound } from "~~/utils/rounds/useRound";
@@ -32,6 +33,15 @@ function message(error: unknown): string {
 }
 
 export function RoundPage() {
+  const params = useSearchParams();
+  return params.get("market") === "threshold" ? (
+    <ThresholdRoundPage key={params.get("brand") ?? "DEGEN"} />
+  ) : (
+    <UpDownRoundPage />
+  );
+}
+
+function UpDownRoundPage() {
   const params = useSearchParams();
   const payer = payerFor(params.get("brand"));
   const [selected, setSelected] = useState<bigint | null>(() => {
@@ -213,6 +223,9 @@ export function RoundPage() {
         <ConnectButton showBalance={false} chainStatus="icon" />
       </header>
       <div className="round-content">
+        <a className="round-current" href={`/rounds?brand=${payer.ticker}&market=threshold`}>
+          Threshold Rounds →
+        </a>
         <div className="round-kicker">Onchain · Up or down · {data?.id ? `Round #${data.id}` : "Campaign"}</div>
         {payer.address === zeroAddress ? (
           <div className="round-state" role="status">

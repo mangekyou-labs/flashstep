@@ -21,3 +21,7 @@ node_modules
 
 # cli
 dist
+
+# disposable local fixtures and browser evidence
+/output/
+/.playwright-cli/

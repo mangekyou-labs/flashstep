@@ -182,8 +182,25 @@ contract ThresholdPots is Ownable, ReentrancyGuard, StakeAsset {
     }
 
     function positionOf(uint256 roundId, address player) external view returns (Position memory) {
-        _viewRound(roundId);
-        return s_positions[roundId][player];
+        Round memory r = _viewRound(roundId);
+        return _viewPosition(roundId, player, r);
+    }
+
+    /// @notice Total payout on the selected side if it wins, including an optional new stake.
+    /// This is a current-split preview, not a guaranteed return. Zero amount quotes held stakes.
+    function quoteStake(uint256 roundId, address player, Side side, uint256 amount) external view returns (uint256) {
+        Round memory r = _viewRound(roundId);
+        Position memory p = _viewPosition(roundId, player, r);
+        if (p.claimed) return 0;
+        uint256 total = (side == Side.Yes ? r.yesTotal : r.noTotal) + amount;
+        if (total == 0) return 0;
+        return Math.mulDiv((side == Side.Yes ? p.yes : p.no) + amount, r.pot + amount, total);
+    }
+
+    /// @notice A live comparison for display, never used as a settlement input.
+    function currentValue(uint256 roundId) external view returns (uint256) {
+        Round memory r = _viewRound(roundId);
+        return r.metric == Metric.Price ? r.reader.preview().price : r.marketCapReader.previewMarketCap().marketCap;
     }
 
     function stake(uint256 roundId, Side side, uint256 amount) external payable nonReentrant {
@@ -428,6 +445,14 @@ contract ThresholdPots is Ownable, ReentrancyGuard, StakeAsset {
     function _viewRound(uint256 roundId) private view returns (Round memory) {
         if (s_rounds[roundId].materialized) return s_rounds[roundId];
         return _scheduledRound(roundId);
+    }
+
+    function _viewPosition(uint256 roundId, address player, Round memory r) private view returns (Position memory p) {
+        p = s_positions[roundId][player];
+        if (!r.materialized && player == r.payer) {
+            p.yes = r.openingStake;
+            p.no = r.openingStake;
+        }
     }
 
     function _materialize(uint256 roundId) private returns (Round storage r) {

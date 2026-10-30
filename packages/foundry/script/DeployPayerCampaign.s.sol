@@ -9,6 +9,18 @@ import { MarketCapReader } from "../contracts/readings/MarketCapReader.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
+/// @dev The identity calls of a Uniswap V3 pool that the vetting reads.
+interface IV3PoolIdentity {
+    function factory() external view returns (address);
+    function token0() external view returns (address);
+    function token1() external view returns (address);
+    function fee() external view returns (uint24);
+}
+
+interface IV3FactoryRegistry {
+    function getPool(address tokenA, address tokenB, uint24 fee) external view returns (address);
+}
+
 /// @notice Deploys both Round contracts from the payer's own wallet, so the payer is the owner and the
 /// developer holds nothing (ADR 0004). The signer is whatever the CLI supplies (`--account` or `--ledger`);
 /// the script never takes a key. The configured `payer` must equal that signer or the run reverts.
@@ -21,6 +33,17 @@ contract DeployPayerCampaign is Script {
     error PayerBalanceTooLow(uint256 required, uint256 balance);
     error NotOwnedBySigner(address target, address owner, address signer);
     error InvalidConfig(string reason);
+    error NotAContract(string what, address target);
+    error UnsupportedChain(uint256 chainId);
+    error WrongFactory(address actual, address expected);
+    error PoolTokensMismatch(address baseToken);
+    error PoolFeeMismatch(uint24 actual, uint24 expected);
+    error PoolNotRegistered(address registered);
+
+    /// @dev The Uniswap V3 factories the pool must come from. Fixed in code on live chains, so a config file
+    /// cannot point the vetting at a look-alike factory. Chain 31337 reads the factory from the config.
+    address internal constant BASE_V3_FACTORY = 0x33128a8fC17869897dcE68Ed026d694621f6FDfD;
+    address internal constant BASE_SEPOLIA_V3_FACTORY = 0x4752ba5DBc23f44D87826276BF6Fd6b1C372aD24;
 
     struct UpDownConfig {
         uint256 payout;
@@ -58,9 +81,16 @@ contract DeployPayerCampaign is Script {
         ThresholdConfig threshold;
     }
 
+    /// @notice Vet the configured pool and stake token without broadcasting. The driver runs this first and
+    /// shows the result before asking for a yes; `run()` runs it again so a bad address can never be deployed.
+    function preflight() external view {
+        _vet(_loadConfig());
+    }
+
     /// @notice Phase one: deploy the readers and both Round contracts as the payer.
     function run() external {
         Config memory cfg = _loadConfig();
+        _vet(cfg);
         _beginBroadcast();
         (, address signer,) = vm.readCallers();
         if (signer != cfg.payer) revert SignerIsNotPayer(signer, cfg.payer);
@@ -145,6 +175,37 @@ contract DeployPayerCampaign is Script {
         console.log("Funded and seeded both Campaigns");
     }
 
+    function _expectedFactory(Config memory cfg) internal view returns (address) {
+        if (block.chainid == 8453) return BASE_V3_FACTORY;
+        if (block.chainid == 84532) return BASE_SEPOLIA_V3_FACTORY;
+        if (block.chainid == 31337) return cfg.poolFactory;
+        revert UnsupportedChain(block.chainid);
+    }
+
+    /// @dev Code and identity checks on every address the Campaigns will trust, before anything is signed.
+    function _vet(Config memory cfg) internal view {
+        address expectedFactory = _expectedFactory(cfg);
+        _requireCode("pool", cfg.pool);
+        _requireCode("baseToken", cfg.baseToken);
+        _requireCode("factory", expectedFactory);
+        if (cfg.stakeToken != address(0)) _requireCode("stakeToken", cfg.stakeToken);
+
+        IV3PoolIdentity pool = IV3PoolIdentity(cfg.pool);
+        address actualFactory = pool.factory();
+        if (actualFactory != expectedFactory) revert WrongFactory(actualFactory, expectedFactory);
+        address token0 = pool.token0();
+        address token1 = pool.token1();
+        if (cfg.baseToken != token0 && cfg.baseToken != token1) revert PoolTokensMismatch(cfg.baseToken);
+        uint24 actualFee = pool.fee();
+        if (actualFee != cfg.poolFee) revert PoolFeeMismatch(actualFee, cfg.poolFee);
+        address registered = IV3FactoryRegistry(expectedFactory).getPool(token0, token1, actualFee);
+        if (registered != cfg.pool) revert PoolNotRegistered(registered);
+    }
+
+    function _requireCode(string memory what, address target) private view {
+        if (target.code.length == 0) revert NotAContract(what, target);
+    }
+
     /// @dev Overridden only by tests, to sign as a chosen payer. The CLI signer is used in production.
     function _beginBroadcast() internal virtual {
         vm.startBroadcast();
@@ -169,7 +230,8 @@ contract DeployPayerCampaign is Script {
         cfg.pool = vm.parseJsonAddress(json, ".pool");
         cfg.baseToken = vm.parseJsonAddress(json, ".baseToken");
         cfg.poolFee = uint24(vm.parseJsonUint(json, ".poolFee"));
-        cfg.poolFactory = vm.keyExistsJson(json, ".poolFactory") ? vm.parseJsonAddress(json, ".poolFactory") : address(0);
+        cfg.poolFactory =
+            vm.keyExistsJson(json, ".poolFactory") ? vm.parseJsonAddress(json, ".poolFactory") : address(0);
         cfg.lookbackSeconds = uint32(vm.parseJsonUint(json, ".lookbackSeconds"));
         cfg.allowStakeCapAboveRule = vm.parseJsonBool(json, ".allowStakeCapAboveRule");
 

@@ -68,6 +68,11 @@ abstract contract PayerDeployFixture is Test {
     uint256 internal thresholdFixedSupply = 0;
     bool internal allowAboveRule = true;
 
+    // What the config file says about the pool; tests change these to feed the vetting bad inputs.
+    uint24 internal configuredFee = 500;
+    address internal configuredFactory;
+    address internal configuredStakeToken;
+
     function setUp() public virtual {
         vm.warp(1_000);
         vm.roll(500);
@@ -81,6 +86,8 @@ abstract contract PayerDeployFixture is Test {
         factory.setPool(token0, token1, 500, address(pool));
         quote.setBalance(address(pool), POOL_DEPTH);
         quote.setBalance(payer, 1_000e18);
+        configuredStakeToken = address(quote);
+        configuredFactory = address(factory);
     }
 
     /// @dev Call at the top of every test, after changing any setting variable. Files are named from the
@@ -100,13 +107,15 @@ abstract contract PayerDeployFixture is Test {
             '{"payer":"',
             vm.toString(payer),
             '","stakeToken":"',
-            vm.toString(address(quote)),
+            vm.toString(configuredStakeToken),
             '","pool":"',
             vm.toString(address(pool)),
             '","baseToken":"',
             vm.toString(address(base)),
-            '","poolFee":500,"poolFactory":"',
-            vm.toString(address(factory)),
+            '","poolFee":',
+            vm.toString(uint256(configuredFee)),
+            ',"poolFactory":"',
+            vm.toString(configuredFactory),
             '","lookbackSeconds":30,"allowStakeCapAboveRule":',
             allowAboveRule ? "true" : "false",
             ",",

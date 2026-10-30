@@ -319,10 +319,10 @@ Run each of these on the commit you deploy from. Test counts are not recorded he
 
 | Check | What to expect |
 | --- | --- |
-| `forge test` in `packages/foundry` (unit, fuzz, invariant, including `PredictionMarket.t.sol`) | No failures. The pinned-fork tests skip unless `BASE_RPC_URL` is set. |
+| `forge test` in `packages/foundry` (unit, fuzz, invariant) | No failures outside `test/PredictionMarket.t.sol`. That file is the unimplemented Speedrun challenge skeleton and fails on every branch of this repo until the challenge is solved; it is unrelated to this deploy. The pinned-fork tests skip unless `BASE_RPC_URL` is set. |
 | `BASE_RPC_URL=https://mainnet.base.org forge test --match-path test/deploy/StakeCapRule.fork.t.sol -vv` | The fork tests pass at Base block 35,000,000 and log the numbers quoted in "What the fork check covers". The public endpoint needs a cached or archive-capable node for that block. |
 | `slither .` | No unaddressed high or medium. The one high is the OpenZeppelin `mulDiv` false positive. The medium findings in the contracts were already triaged before this ticket. |
-| `slither script/DeployPayerCampaign.s.sol`, run separately | Slither skips `script/` by default. Only benign cheatcode `unused-return` and the intentional uninitialized `marketCapReader` (zero address when absent) show up. |
+| `slither script/DeployPayerCampaign.s.sol`, run separately | Slither skips `script/` by default. In the script itself only benign cheatcode `unused-return` (`vm.readCallers`, `vm.serialize*`) and the intentional uninitialized `marketCapReader` (zero address when absent) show up. The run also reports the already-triaged `divide-before-multiply` and `incorrect-equality` findings in `UpDownRounds` and `ThresholdPots`, because the script imports them. |
 | `yarn payer:deploy:test` | The Node gate rules pass. |
 | `yarn payer:deploy:smoke` | Passes on a local anvil. |
 

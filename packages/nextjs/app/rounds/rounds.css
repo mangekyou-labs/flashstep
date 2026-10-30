@@ -521,3 +521,62 @@
     gap: 8px;
   }
 }
+
+/* Proof and sharing */
+.round-pool,
+.round-share {
+  margin-top: 32px;
+  padding: 16px;
+  border: 1px solid var(--round-border);
+  border-radius: 12px;
+}
+.round-pool h2,
+.round-share h2 {
+  font-size: 15px;
+  margin-bottom: 8px;
+}
+.round-pool-total strong {
+  font-size: 20px;
+}
+.round-share-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.round-share-links a,
+.round-share-links button {
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  padding: 0 14px;
+  border: 1px solid var(--round-border);
+  border-radius: 8px;
+  color: var(--round-accent);
+  background: transparent;
+  text-decoration: none;
+  font-size: 13px;
+  transition: background-color 150ms ease-out;
+}
+.round-share-links a:hover,
+.round-share-links button:hover {
+  background: var(--round-subtle);
+}
+.round-share-url {
+  margin-top: 12px;
+  font-size: 12px;
+  color: var(--round-muted);
+  overflow-wrap: anywhere;
+}
+.round-history td a {
+  color: var(--round-accent);
+}
+.round-history td code {
+  font-size: 12px;
+}
+.round-history td:nth-last-child(2) {
+  text-align: right;
+}
+.round-history table {
+  display: block;
+  overflow-x: auto;
+}

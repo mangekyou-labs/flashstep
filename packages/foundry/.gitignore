@@ -12,3 +12,8 @@ docs/
 # Dotenv file
 .env
 localhost.json
+
+# Payer deploy: broadcast logs can carry the RPC URL and the result file is per payer, not source
+/broadcast/DeployPayerCampaign.s.sol/
+/deployments/payer-*.json
+/cache-payer/

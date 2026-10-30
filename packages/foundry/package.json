@@ -19,6 +19,9 @@
     "test": "forge test",
     "settle:bot": "node scripts-js/settleBot.js",
     "settle:bot:smoke": "forge build && node scripts-js/settleBot.smoke.js",
+    "payer:deploy": "node scripts-js/payerDeploy.js",
+    "payer:deploy:test": "node --test scripts-js/payerDeployGate.test.js",
+    "payer:deploy:smoke": "forge build && node scripts-js/payerDeploy.smoke.js",
     "verify": "make verify RPC_URL=${1:-localhost}"
   },
   "dependencies": {

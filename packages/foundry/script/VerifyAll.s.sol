@@ -25,8 +25,10 @@ contract VerifyAll is Script {
 
     function run() external {
         string memory root = vm.projectRoot();
+        // VERIFY_SCRIPT names another broadcast folder, e.g. DeployPayerCampaign.s.sol for the payer deploy.
+        string memory script = vm.envOr("VERIFY_SCRIPT", string("Deploy.s.sol"));
         string memory path =
-            string.concat(root, "/broadcast/Deploy.s.sol/", vm.toString(block.chainid), "/run-latest.json");
+            string.concat(root, "/broadcast/", script, "/", vm.toString(block.chainid), "/run-latest.json");
         string memory content = vm.readFile(path);
 
         while (nextTransaction(content)) {

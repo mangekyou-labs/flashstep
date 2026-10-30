@@ -7,7 +7,7 @@ import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Address, BaseError, erc20Abi, formatUnits, parseUnits, zeroAddress } from "viem";
 import { useAccount, usePublicClient, useSwitchChain, useWriteContract } from "wagmi";
-import { PoolBalance, SettleTx, ShareBar } from "~~/components/rounds/ProofPanels";
+import { NoExplorerNote, ProofPanels, SettleTxCell } from "~~/components/rounds/ProofPanels";
 import { ReadingChart, readingLabel } from "~~/components/rounds/ReadingChart";
 import { ThresholdRoundPage } from "~~/components/rounds/ThresholdRoundPage";
 import { Payer, payerFor } from "~~/config/payers";
@@ -446,8 +446,7 @@ function UpDownRoundPage() {
             {failure}
           </div>
         )}
-        <ShareBar payer={payer} market="updown" roundId={data?.id || undefined} />
-        <PoolBalance payer={payer} market="updown" />
+        <ProofPanels payer={payer} market="updown" roundId={data?.id || undefined} />
         {data?.current ? (
           <RecentRounds payer={payer} current={data.current} account={address} onSelect={id => setSelected(id)} />
         ) : null}
@@ -501,7 +500,7 @@ function RecentRounds({
       );
     },
   });
-  const proof = useSettleTxs(payer, "updown", history.data);
+  const settleTxs = useSettleTxs(payer, "updown", history.data);
   return (
     <section className="round-history">
       <h2>Recent Rounds</h2>
@@ -512,50 +511,47 @@ function RecentRounds({
       ) : !history.data?.length ? (
         <p className="round-muted">{history.isPending ? "Loading recent Rounds…" : "The first Round is trading."}</p>
       ) : (
-        <table>
-          <thead>
-            <tr>
-              <th>Round</th>
-              <th>Result</th>
-              <th>Start Reading → End Reading</th>
-              <th>Settle tx</th>
-              <th>
-                <span className="sr-only">Action</span>
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {history.data.map(row => (
-              <tr key={String(row.id)}>
-                <td>#{String(row.id)}</td>
-                <td>
-                  {row.phase === 4
-                    ? "Refunded"
-                    : row.round.result
-                      ? resultNames[row.round.result]
-                      : phaseNames[row.phase]}
-                </td>
-                <td>
-                  {row.round.startReading.price ? readingLabel(row.round.startReading.price) : "—"} →{" "}
-                  {row.round.endReading.price ? readingLabel(row.round.endReading.price) : "—"}
-                </td>
-                <td>
-                  <SettleTx
-                    payer={payer}
-                    settled={row.phase === 3 || row.phase === 4}
-                    hash={proof.data?.[String(row.id)]}
-                  />
-                </td>
-                <td>
-                  <button onClick={() => onSelect(row.id)}>
-                    {row.claimable > 0n ? "View claim" : "View"}
-                    <span className="sr-only"> Round {String(row.id)}</span>
-                  </button>
-                </td>
+        <>
+          <table>
+            <thead>
+              <tr>
+                <th>Round</th>
+                <th>Result</th>
+                <th>Start Reading → End Reading</th>
+                <th>Settle tx</th>
+                <th>
+                  <span className="sr-only">Action</span>
+                </th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {history.data.map(row => (
+                <tr key={String(row.id)}>
+                  <td>#{String(row.id)}</td>
+                  <td>
+                    {row.phase === 4
+                      ? "Refunded"
+                      : row.round.result
+                        ? resultNames[row.round.result]
+                        : phaseNames[row.phase]}
+                  </td>
+                  <td>
+                    {row.round.startReading.price ? readingLabel(row.round.startReading.price) : "—"} →{" "}
+                    {row.round.endReading.price ? readingLabel(row.round.endReading.price) : "—"}
+                  </td>
+                  <SettleTxCell payer={payer} round={row} txs={settleTxs} />
+                  <td>
+                    <button onClick={() => onSelect(row.id)}>
+                      {row.claimable > 0n ? "View claim" : "View"}
+                      <span className="sr-only"> Round {String(row.id)}</span>
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <NoExplorerNote payer={payer} />
+        </>
       )}
     </section>
   );

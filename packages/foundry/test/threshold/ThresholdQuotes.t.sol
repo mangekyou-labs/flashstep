@@ -18,6 +18,30 @@ contract ThresholdQuotesTest is ThresholdFixture {
         assertEq(market.claimable(1, alice), 4 ether);
     }
 
+    function testLazyRoundPayerQuoteIncludesOpeningStakesAndMatchesClaim() public {
+        ThresholdPots.CampaignSettings memory s = settings();
+        s.threshold -= 1;
+        market.seedRound(s);
+        vm.warp(110);
+        vm.roll(15);
+        assertFalse(market.round(2).materialized);
+        // Opening stakes are one on each side. Adding one Yes owns all Yes
+        // stakes and wins the full three-token Pot.
+        assertEq(market.quoteStake(2, address(this), ThresholdPots.Side.Yes, 1 ether), 3 ether);
+        assertEq(market.quoteStake(2, address(this), ThresholdPots.Side.No, 0), 2 ether);
+        ThresholdPots.Position memory position = market.positionOf(2, address(this));
+        assertEq(position.yes, 1 ether);
+        assertEq(position.no, 1 ether);
+        assertEq(position.paid, 0);
+        assertEq(market.quoteStake(2, alice, ThresholdPots.Side.Yes, 1 ether), 1.5 ether);
+        market.stake{value: 1 ether}(2, ThresholdPots.Side.Yes, 1 ether);
+        finish(2);
+        assertEq(market.claimable(2, address(this)), 3 ether);
+        uint256 beforeClaim = address(this).balance;
+        market.claim(2);
+        assertEq(address(this).balance - beforeClaim, 3 ether);
+    }
+
     function testOthersJoiningYourSideShrinkHeldPayout() public {
         market.seedRound(settings());
         stakeAs(alice, 1, ThresholdPots.Side.Yes, 1 ether);

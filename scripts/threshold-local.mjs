@@ -75,14 +75,22 @@ if (command === "setup") {
         await timestamp(r.windowEnd);
         await write(state.rounds, pots.abi, "captureBoundary", [id]);
       } else { await timestamp(r.windowEnd); await rpc("evm_mine"); }
-      await write(state.rounds, pots.abi, "settle", [id]);
+      const settled = await write(state.rounds, pots.abi, "settle", [id]);
       const result = await client.readContract({ address: state.rounds, abi: pots.abi, functionName: "round", args: [id] });
-      console.log(`Round ${id}: ${["None", "Yes", "No", "Tie", "Unmatched", "Refunded"][result.result]}`);
+      console.log(`Round ${id}: ${["None", "Yes", "No", "Tie", "Unmatched", "Refunded"][result.result]} ${settled.transactionHash}`);
     }
+  } else if (command === "refund") {
+    // No boundary Reading is captured, so once the grace period passes anyone may refund the Round.
+    const id = BigInt(argument || "1");
+    const r = await client.readContract({ address: state.rounds, abi: pots.abi, functionName: "round", args: [id] });
+    if (r.result !== 0) throw new Error("Already settled.");
+    await timestamp(r.windowEnd + 61n);
+    const refunded = await write(state.rounds, pots.abi, "settle", [id]);
+    console.log(`Round ${id}: Refunded ${refunded.transactionHash}`);
   } else if (command === "inspect") {
     const player = argument || state.other;
     const id = BigInt(extra || "1");
     const value = await client.readContract({ address: state.rounds, abi: pots.abi, functionName: "claimable", args: [id, player] });
     console.log(`claimable=${value}`);
-  } else throw new Error("Use setup [yes|no|tie|unmatched|marketcap|usdc], fund-player <address>, stake-other [yes|no] [amount], cutoff [id], settle [id], inspect [player] [id].");
+  } else throw new Error("Use setup [yes|no|tie|unmatched|marketcap|usdc], fund-player <address>, stake-other [yes|no] [amount], cutoff [id], settle [id], refund [id], inspect [player] [id].");
 }

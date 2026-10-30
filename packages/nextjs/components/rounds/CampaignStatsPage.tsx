@@ -19,7 +19,7 @@ export function CampaignStatsPage() {
   const payer = payerFor(useSearchParams().get("brand"));
   const stats = useCampaignStats(payer);
   const data = stats.data;
-  const d = data?.token.decimals ?? 18;
+  const decimals = data?.token.decimals ?? 18;
   const symbol = data?.token.symbol ?? "";
   return (
     <div
@@ -54,25 +54,29 @@ export function CampaignStatsPage() {
                 <div>
                   <dt>Stake volume</dt>
                   <dd data-testid="total-volume">
-                    {formatUnits(data.totals.volume, d)} {symbol}
+                    {formatUnits(data.totals.volume, decimals)} {symbol}
                   </dd>
                 </div>
                 <div>
                   <dt>Your result on Rounds ({data.totals.settledRounds} ended)</dt>
                   <dd data-testid="total-pnl">
-                    {signed(data.totals.payerPnl, d)} {symbol}
+                    {signed(data.totals.payerPnl, decimals)} {symbol}
                   </dd>
                 </div>
                 <div>
                   <dt>Campaign cost</dt>
                   <dd data-testid="campaign-cost">
-                    {formatUnits(data.totals.campaignCost, d)} {symbol}
+                    {data.totals.campaignCost === undefined
+                      ? "Not configured"
+                      : `${formatUnits(data.totals.campaignCost, decimals)} ${symbol}`}
                   </dd>
                 </div>
                 <div>
                   <dt>Total spend (cost minus result)</dt>
                   <dd data-testid="total-spend">
-                    {formatUnits(-data.totals.net, d)} {symbol}
+                    {data.totals.net === undefined
+                      ? "Not configured"
+                      : `${formatUnits(-data.totals.net, decimals)} ${symbol}`}
                   </dd>
                 </div>
               </dl>
@@ -80,7 +84,7 @@ export function CampaignStatsPage() {
             <section className="round-history">
               <h2>Rounds</h2>
               {data.rounds.length === 0 ? (
-                <p className="round-muted">No Round has been seeded yet.</p>
+                <p className="round-muted">No Round has opened yet.</p>
               ) : (
                 <div className="round-table-scroll">
                   <table data-testid="stats-table">
@@ -101,10 +105,12 @@ export function CampaignStatsPage() {
                           <td>#{round.id.toString()}</td>
                           <td>{statusLabel[round.status]}</td>
                           <td>
-                            {formatUnits(round.volume, d)} {symbol}
+                            {formatUnits(round.volume, decimals)} {symbol}
                           </td>
                           <td>{round.players}</td>
-                          <td>{round.payerPnl === undefined ? "Pending" : `${signed(round.payerPnl, d)} ${symbol}`}</td>
+                          <td>
+                            {round.payerPnl === undefined ? "–" : `${signed(round.payerPnl, decimals)} ${symbol}`}
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -112,7 +118,8 @@ export function CampaignStatsPage() {
                 </div>
               )}
               <p className="round-muted">
-                Profit or loss is on seeded liquidity (up/down) and Opening stakes (threshold), before claims.
+                Profit or loss is on up/down Round liquidity and threshold Opening stakes, before claims. Volume counts
+                player buys and stakes only.
               </p>
             </section>
           </>

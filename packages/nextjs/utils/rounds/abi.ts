@@ -21,6 +21,7 @@ export const roundsAbi = parseAbi([
   "event Bought(uint256 indexed roundId, address indexed player, uint8 side, uint256 shares, uint256 cost)",
   "event Sold(uint256 indexed roundId, address indexed player, uint8 side, uint256 shares, uint256 proceeds)",
   "function PAYOUT() view returns (uint256)",
+  "function owner() view returns (address)",
   "event Refunded(uint256 indexed roundId, address indexed payer, uint256 liquidity)",
   "function i_stakeToken() view returns (address)",
   "function buy(uint256 roundId, uint8 side, uint256 shares, uint256 maxCost) payable",

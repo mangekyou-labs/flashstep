@@ -26,8 +26,8 @@ export const payers = {
     chainId: 31337,
     quoteTicker: "ETH",
     explorerUrl: explorerFor(31337, process.env.NEXT_PUBLIC_DEGEN_EXPLORER_URL),
-    /** What the payer paid for the Campaign, in the stake token (decimal string), for the payer stats view. */
-    campaignCost: process.env.NEXT_PUBLIC_DEGEN_CAMPAIGN_COST || "0.5",
+    /** What the payer paid for the Campaign, in the stake token (decimal string); unset shows "not configured". */
+    campaignCost: process.env.NEXT_PUBLIC_DEGEN_CAMPAIGN_COST || undefined,
     /** First block to read Campaign events from (the deploy block). */
     fromBlock: BigInt(process.env.NEXT_PUBLIC_DEGEN_FROM_BLOCK || "0"),
   },
@@ -47,7 +47,7 @@ export const payers = {
     chainId: 31337,
     quoteTicker: "ETH",
     explorerUrl: explorerFor(31337, process.env.NEXT_PUBLIC_BASE_EXPLORER_URL),
-    campaignCost: process.env.NEXT_PUBLIC_BASE_CAMPAIGN_COST || "0.5",
+    campaignCost: process.env.NEXT_PUBLIC_BASE_CAMPAIGN_COST || undefined,
     fromBlock: BigInt(process.env.NEXT_PUBLIC_BASE_FROM_BLOCK || "0"),
   },
 } as const;

@@ -10,6 +10,8 @@ import { thresholdAbi } from "~~/utils/rounds/thresholdAbi";
 
 // Public RPCs cap the block range of one getLogs call.
 const LOG_RANGE_BLOCKS = 1_000n;
+/** Native ETH stake, and the fallback when neither market is configured. */
+const ETH = { decimals: 18, symbol: "ETH" };
 
 async function campaignLogs(client: PublicClient, address: Address, abi: Abi, fromBlock: bigint, toBlock: bigint) {
   const logs: RoundLog[] = [];
@@ -23,7 +25,7 @@ async function campaignLogs(client: PublicClient, address: Address, abi: Abi, fr
 
 async function stakeToken(client: PublicClient, address: Address, abi: Abi) {
   const token = (await client.readContract({ address, abi, functionName: "i_stakeToken" })) as Address;
-  if (token === zeroAddress) return { decimals: 18, symbol: "ETH" };
+  if (token === zeroAddress) return ETH;
   const [decimals, symbol] = await Promise.all([
     client.readContract({ address: token, abi: erc20Abi, functionName: "decimals" }),
     client.readContract({ address: token, abi: erc20Abi, functionName: "symbol" }),
@@ -46,12 +48,13 @@ export function useCampaignStats(payer: Payer) {
       let token: { decimals: number; symbol: string } | undefined;
       if (payer.address !== zeroAddress) {
         const abi = roundsAbi as Abi;
-        const [logs, payout, meta] = await Promise.all([
+        const [logs, payout, owner, meta] = await Promise.all([
           campaignLogs(client, payer.address, abi, payer.fromBlock, latest),
           client.readContract({ address: payer.address, abi: roundsAbi, functionName: "PAYOUT" }),
+          client.readContract({ address: payer.address, abi: roundsAbi, functionName: "owner" }),
           stakeToken(client, payer.address, abi),
         ]);
-        rounds.push(...upDownRoundStats(logs, payout));
+        rounds.push(...upDownRoundStats(logs, payout, owner));
         token = meta;
       }
       if (payer.thresholdAddress !== zeroAddress) {
@@ -63,8 +66,9 @@ export function useCampaignStats(payer: Payer) {
         rounds.push(...thresholdRoundStats(logs));
         token ??= meta;
       }
-      token ??= { decimals: 18, symbol: "ETH" };
-      const totals = campaignTotals(rounds, parseUnits(payer.campaignCost, token.decimals));
+      token ??= ETH;
+      const cost = payer.campaignCost === undefined ? undefined : parseUnits(payer.campaignCost, token.decimals);
+      const totals = campaignTotals(rounds, cost);
       return { rounds, totals, token, block: latest };
     },
   });

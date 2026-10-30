@@ -18,6 +18,7 @@ export const thresholdAbi = parseAbi([
   "event Refunded(uint256 indexed roundId)",
   "event RoundSeeded(uint256 indexed roundId, address indexed payer, uint256 openingStake, uint256 cutoff, uint256 windowEnd)",
   "event Staked(uint256 indexed roundId, address indexed player, uint8 side, uint256 amount)",
+  "event DustCredited(uint256 indexed roundId, address indexed payer, uint256 amount)",
   "function stake(uint256 roundId, uint8 side, uint256 amount) payable",
   "function claim(uint256 roundId) returns (uint256)",
   "error StakeCapExceeded()",

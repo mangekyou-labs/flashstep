@@ -10,9 +10,21 @@ import { MockV3Factory, MockV3Pool } from "../mocks/MockUniswapV3.sol";
 /// @notice The script under test, signing as a chosen payer the way `--account` would.
 contract SignedAsPayer is DeployPayerCampaign {
     address public immutable signer;
+    string private s_configPath;
+    string private s_outPath;
 
-    constructor(address signer_) {
+    constructor(address signer_, string memory configPath_, string memory outPath_) {
         signer = signer_;
+        s_configPath = configPath_;
+        s_outPath = outPath_;
+    }
+
+    function _configPath() internal view override returns (string memory) {
+        return s_configPath;
+    }
+
+    function _outPath() internal view override returns (string memory) {
+        return s_outPath;
     }
 
     function _beginBroadcast() internal override {
@@ -21,8 +33,9 @@ contract SignedAsPayer is DeployPayerCampaign {
 }
 
 abstract contract PayerDeployFixture is Test {
-    string internal constant CONFIG_PATH = "cache-payer/test-config.json";
-    string internal constant OUT_PATH = "cache-payer/test-deploy.json";
+    // Unique per test, so tests running in parallel never share a config or result file.
+    string internal configPath;
+    string internal outPath;
 
     address internal payer = makeAddr("payer");
     address internal developer = makeAddr("developer");
@@ -51,6 +64,8 @@ abstract contract PayerDeployFixture is Test {
     uint256 internal thresholdDuration = 0;
     uint256 internal thresholdFunding = 20e18;
     string internal thresholdMetric = "Price";
+    string internal thresholdSupplyMode = "Unsupported";
+    uint256 internal thresholdFixedSupply = 0;
     bool internal allowAboveRule = true;
 
     function setUp() public virtual {
@@ -66,14 +81,21 @@ abstract contract PayerDeployFixture is Test {
         factory.setPool(token0, token1, 500, address(pool));
         quote.setBalance(address(pool), POOL_DEPTH);
         quote.setBalance(payer, 1_000e18);
+    }
+
+    /// @dev Call at the top of every test, after changing any setting variable. Files are named from the
+    /// test suite and test function, so tests running in parallel never share a config or result file.
+    function _prepare() internal {
         vm.createDir("cache-payer", true);
-        vm.setEnv("PAYER_CONFIG", CONFIG_PATH);
-        vm.setEnv("PAYER_DEPLOY_OUT", OUT_PATH);
-        script = new SignedAsPayer(payer);
+        string memory id = string.concat(vm.toString(address(this).codehash), "-", vm.toString(msg.sig));
+        configPath = string.concat("cache-payer/config-", id, ".json");
+        outPath = string.concat("cache-payer/deploy-", id, ".json");
+        if (vm.exists(outPath)) vm.removeFile(outPath);
+        script = new SignedAsPayer(payer, configPath, outPath);
         _writeConfig();
     }
 
-    function _writeConfig() internal {
+    function _writeConfig() private {
         string memory json = string.concat(
             '{"payer":"',
             vm.toString(payer),
@@ -93,7 +115,7 @@ abstract contract PayerDeployFixture is Test {
             _thresholdJson(),
             "}"
         );
-        vm.writeFile(CONFIG_PATH, json);
+        vm.writeFile(configPath, json);
     }
 
     function _upDownJson() private view returns (string memory) {
@@ -132,7 +154,11 @@ abstract contract PayerDeployFixture is Test {
             vm.toString(thresholdDuration),
             ',"funding":"',
             vm.toString(thresholdFunding),
-            '","supplyMode":"Unsupported","fixedSupply":"0"}'
+            '","supplyMode":"',
+            thresholdSupplyMode,
+            '","fixedSupply":"',
+            vm.toString(thresholdFixedSupply),
+            '"}'
         );
     }
 }

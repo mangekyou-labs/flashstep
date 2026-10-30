@@ -7,12 +7,13 @@ import { ThresholdPots } from "../../contracts/ThresholdPots.sol";
 
 contract PayerOwnershipTest is PayerDeployFixture {
     function _deployed() internal view returns (address upDown, address threshold) {
-        string memory json = vm.readFile(OUT_PATH);
+        string memory json = vm.readFile(outPath);
         upDown = vm.parseJsonAddress(json, ".upDown");
         threshold = vm.parseJsonAddress(json, ".threshold");
     }
 
     function test_payerOwnsBothContractsAndNobodyElseHoldsARole() public {
+        _prepare();
         script.run();
         (address upDown, address threshold) = _deployed();
 

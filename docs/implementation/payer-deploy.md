@@ -192,7 +192,7 @@ If the pool is thin or the figures above are stale, re-read the pool balance and
 Recommended owner: a Safe controlled by the Payer's signers, not a single hot EOA. The deploy script requires the signer to equal the configured Payer, so there are two ways to get a Safe as owner:
 
 1. Set `payer` to the Safe, and sign the script with a signer the Safe accepts (the Safe's execution path is outside this script; use the Safe's transaction builder with the same calldata the dry run prints), or
-2. Deploy from an EOA, check everything, then call `transferOwnership(safe)` on both contracts and have the Safe confirm the state. Until then the EOA is the owner. A Round records the owner at the time it is materialized as its `payer`, and unused liquidity from that Round is refunded to that address, so transfer ownership before the Campaign is seeded if the Safe should receive all refunds. Do not renounce ownership: it removes `stopCampaign` and the ability to withdraw.
+2. Deploy from an EOA, check everything, then call `transferOwnership(safe)` on both contracts and have the Safe confirm the state. Until then the EOA is the owner. A Round records the owner at the time it is materialized as its `payer`, and unused liquidity from that Round is refunded to that address, so Round 1, seeded by the script, refunds to the deploying EOA even after a transfer. Keep that EOA under the Payer's control, or use option 1. Do not renounce ownership: it removes `stopCampaign` and the ability to withdraw.
 
 What each owner power can do, from [updown-campaign.md](updown-campaign.md):
 

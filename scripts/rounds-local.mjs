@@ -42,7 +42,7 @@ async function timestamp(next) {
   if (latest.timestamp >= next) throw new Error(`Boundary ${next} has already passed (chain time ${latest.timestamp}). Set up a fresh fixture.`);
   await rpc("evm_setNextBlockTimestamp", [Number(next)]);
 }
-const [command, argument] = process.argv.slice(2);
+const [command, argument, outcome] = process.argv.slice(2);
 if (command === "setup") {
   await rpc("anvil_setIntervalMining", [0]);
   await rpc("evm_setAutomine", [true]);
@@ -73,15 +73,17 @@ if (command === "setup") {
     await write(state.rounds, roundsArtifact.abi, "captureBoundary", [roundId]);
   }
   if (command === "settle") {
-    // A higher pool tick during the Window makes Up win. Both Readings still use the real reader.
-    await write(state.pool, poolArtifact.abi, "write", [100]);
+    // A higher pool tick during the Window makes Up win; `tie` leaves the tick unchanged.
+    // Both Readings still use the real reader.
+    const tie = outcome === "tie";
+    if (!tie) await write(state.pool, poolArtifact.abi, "write", [100]);
     await timestamp(r.windowEnd);
     await write(state.rounds, roundsArtifact.abi, "captureBoundary", [roundId]);
     const result = await write(state.rounds, roundsArtifact.abi, "settle", [roundId]);
-    console.log(`Round ${roundId} settled Up: ${result.transactionHash}`);
+    console.log(`Round ${roundId} settled ${tie ? "Tie" : "Up"}: ${result.transactionHash}`);
   } else {
     console.log(`Round ${roundId} entered its Window; the next Round is trading.`);
   }
 } else {
-  throw new Error("Usage: node scripts/rounds-local.mjs setup | fund-player <address> | cutoff [roundId] | settle [roundId]");
+  throw new Error("Usage: node scripts/rounds-local.mjs setup | fund-player <address> | cutoff [roundId] | settle [roundId] [tie]");
 }

@@ -27,8 +27,8 @@ async function main() {
   } catch {
     throw new Error("Invalid SETTLE_PRIVATE_KEY");
   }
-  const interval = integer("SETTLE_REQUEST_INTERVAL_MS", 50, 1);
-  const poll = integer("SETTLE_POLL_MS", 200, 1);
+  const interval = integer("SETTLE_REQUEST_INTERVAL_MS", 10, 1);
+  const poll = integer("SETTLE_POLL_MS", 50, 1);
   const fromBlock = integer("SETTLE_FROM_BLOCK", 0);
   const logRange = integer("SETTLE_LOG_BLOCK_RANGE", 2000, 1);
   const gasLimit = integer("SETTLE_GAS_LIMIT", 1500000, 21000);
@@ -55,6 +55,7 @@ async function main() {
       rounds: new Set(),
       history: new Set(),
       cursor: fromBlock,
+      recentCursor: undefined,
     });
   }
   let nextRequest = 0;
@@ -263,20 +264,27 @@ async function main() {
         if (!current.isZero()) c.rounds.add(current.toString());
       }
       for (const c of contracts) {
-        // Keep discovery bounded so a long history cannot starve current boundaries.
-        if (c.cursor <= height) {
-          const end = Math.min(height, c.cursor + logRange - 1);
+        // At most 30s trading + 30s Window: the last 32 two-second blocks
+        // include every still-capturable seeded Round, even on a fresh restart.
+        // Replay these before captures; old escrow recovery has its own cursor.
+        const start = Math.max(fromBlock, height - 32, c.recentCursor ?? 0);
+        for (let cursor = start; cursor <= height; cursor += logRange) {
+          const end = Math.min(height, cursor + logRange - 1);
           const events = await rpc("eth_getLogs", [
             {
               address: c.address,
-              fromBlock: hex(c.cursor),
+              fromBlock: hex(cursor),
               toBlock: hex(end),
               topics: [c.iface.getEventTopic("RoundSeeded")],
             },
           ]);
-          for (const event of events)
-            c.history.add(c.iface.parseLog(event).args.roundId.toString());
-          c.cursor = end + 1;
+          for (const event of events) {
+            const r = c.iface.parseLog(event).args;
+            const id = r.roundId.toString();
+            if (r.windowEnd.toNumber() >= now) c.rounds.add(id);
+            else c.history.add(id);
+          }
+          c.recentCursor = end + 1;
         }
       }
       const settlements = [];
@@ -314,6 +322,20 @@ async function main() {
       // A small rotating replay budget keeps restart recovery progressing without
       // reading every historical Round before submitting time-sensitive captures.
       for (const c of contracts) {
+        if (c.cursor <= height) {
+          const end = Math.min(height, c.cursor + logRange - 1);
+          const events = await rpc("eth_getLogs", [
+            {
+              address: c.address,
+              fromBlock: hex(c.cursor),
+              toBlock: hex(end),
+              topics: [c.iface.getEventTopic("RoundSeeded")],
+            },
+          ]);
+          for (const event of events)
+            c.history.add(c.iface.parseLog(event).args.roundId.toString());
+          c.cursor = end + 1;
+        }
         for (const id of [...c.history].slice(0, 4)) {
           c.history.delete(id);
           const [r] = await call(c, "round", [id]);

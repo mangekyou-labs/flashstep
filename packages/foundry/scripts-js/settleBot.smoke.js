@@ -154,8 +154,6 @@ try {
           ).privateKey,
           SETTLE_UPDOWN_ADDRESS: upAddress,
           SETTLE_THRESHOLD_ADDRESS: potAddress,
-          SETTLE_REQUEST_INTERVAL_MS: "10",
-          SETTLE_POLL_MS: "20",
           SETTLE_FROM_BLOCK: "0",
           ...extraEnv,
         },
@@ -214,7 +212,7 @@ try {
     "PASS: unprivileged CLI captured and settled both real Round contracts on time"
   );
 
-  // A restart must replay older escrow even when currentRound() is zero.
+  // Restart at an older Round boundary while a newer Round is current.
   await provider.send("evm_setAutomine", [true]);
   const up2 = await deploy("UpDownRounds", [
     payer,
@@ -259,19 +257,23 @@ try {
   );
   await provider.send("evm_setNextBlockTimestamp", [t2]);
   await provider.send("evm_mine", []);
-  await up2.stopCampaign({ gasLimit: 1500000, nonce: n2 + 2 });
-  await pot2.stopCampaign({ gasLimit: 1500000, nonce: n2 + 3 });
   const before = logs.filter((l) => l.event === "ready").length;
   const second = startBot(up2.address, pot2.address);
   await deadline(
     () => logs.filter((l) => l.event === "ready").length > before,
     "second bot did not start"
   );
-  for (let offset = 2; offset <= 12; offset += 2) {
+  for (let offset = 2; offset <= 10; offset += 2) {
     await sleep(650);
     await provider.send("evm_setNextBlockTimestamp", [t2 + offset]);
     await provider.send("evm_mine", []);
   }
+  await stopBot(second);
+  await provider.send("evm_setNextBlockTimestamp", [t2 + 12]);
+  await provider.send("evm_mine", []);
+  assert.notEqual((await up2.currentRound()).toString(), "1");
+  assert.notEqual((await pot2.currentRound()).toString(), "1");
+  const boundaryRestart = startBot(up2.address, pot2.address);
   await deadline(
     async () =>
       (await provider.send("eth_getTransactionCount", [
@@ -280,7 +282,7 @@ try {
       ])) === "0x8",
     "end captures not queued before restart"
   );
-  await stopBot(second);
+  await stopBot(boundaryRestart);
   const count = logs.filter((l) => l.event === "ready").length;
   const restarted = startBot(up2.address, pot2.address);
   await deadline(
@@ -312,11 +314,13 @@ try {
   assert.equal((await pot2.round(1)).result, 1);
   await stopBot(restarted);
   console.log(
-    "PASS: restart recovered both stopped Campaigns from historical RoundSeeded events"
+    "PASS: restart captured older Rounds in its first pass with newer current Rounds, then recovered pending captures"
   );
 
   const readyCount = logs.filter((l) => l.event === "ready").length;
-  const skipping = startBot(up2.address, pot2.address, {
+  const customPacingStart = requestTimes.length;
+  const skipping = startBot(up.address, pot.address, {
+    SETTLE_REQUEST_INTERVAL_MS: "20",
     SETTLE_PRIVATE_KEY: ethers.Wallet.fromMnemonic(
       "test test test test test test test test test test test junk",
       "m/44'/60'/0'/0/2"
@@ -347,6 +351,11 @@ try {
     "another bot must skip Rounds already settled by someone else"
   );
   await stopBot(skipping);
+  for (let i = customPacingStart + 1; i < requestTimes.length; i++)
+    assert.ok(
+      requestTimes[i] - requestTimes[i - 1] >= 17,
+      "configured 20ms RPC pacing must override the default"
+    );
   assert.equal(
     logs.some((l) => l.event === "reverted"),
     false,

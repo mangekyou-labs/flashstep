@@ -248,7 +248,7 @@ try {
       ethers.BigNumber.from(10).pow(36).sub(1),
       10,
       4,
-      t2 + 10,
+      t2 + 20,
       0,
       reader.address,
       ethers.constants.AddressZero,
@@ -271,8 +271,8 @@ try {
   await stopBot(second);
   await provider.send("evm_setNextBlockTimestamp", [t2 + 12]);
   await provider.send("evm_mine", []);
-  assert.notEqual((await up2.currentRound()).toString(), "1");
-  assert.notEqual((await pot2.currentRound()).toString(), "1");
+  assert.equal((await up2.currentRound()).toString(), "2");
+  assert.equal((await pot2.currentRound()).toString(), "2");
   const boundaryRestart = startBot(up2.address, pot2.address);
   await deadline(
     async () =>

@@ -38,6 +38,31 @@ contract ThresholdQuotesTest is ThresholdFixture {
         assertEq(market.claimable(1, alice), 4_000_000);
     }
 
+    function testSixDecimalTokenQuoteMatchesPaidClaim() public {
+        QuirkyStakeToken token = new QuirkyStakeToken(6);
+        market = new ThresholdPots(address(this), reader, address(token));
+        token.mint(address(this), 10_000_000);
+        token.approve(address(market), 10_000_000);
+        market.fund(10_000_000);
+        ThresholdPots.CampaignSettings memory s = settings();
+        s.openingStake = 1_000_000;
+        s.stakeCap = 10_000_000;
+        s.threshold -= 1;
+        market.seedRound(s);
+        token.mint(alice, 2_000_000);
+        vm.prank(alice);
+        token.approve(address(market), 2_000_000);
+        // Pot 2 + Player 2, selected side 1 + Player 2: payout floors to 2.666666.
+        assertEq(market.quoteStake(1, alice, ThresholdPots.Side.Yes, 2_000_000), 2_666_666);
+        vm.prank(alice);
+        market.stake(1, ThresholdPots.Side.Yes, 2_000_000);
+        finish(1);
+        assertEq(market.claimable(1, alice), 2_666_666);
+        vm.prank(alice);
+        market.claim(1);
+        assertEq(token.balanceOf(alice), 2_666_666);
+    }
+
     function testCurrentPriceAndMarketCapComeFromContractViews() public {
         market.seedRound(settings());
         vm.warp(110);
@@ -51,12 +76,5 @@ contract ThresholdQuotesTest is ThresholdFixture {
         vm.warp(120);
         vm.roll(20);
         assertEq(market.currentValue(3), 100e36);
-    }
-}
-
-contract ThresholdQuotesSixDecimalTest is ThresholdQuotesTest {
-    function setUp() public override {
-        _setStakeToken(address(new QuirkyStakeToken(6)));
-        super.setUp();
     }
 }

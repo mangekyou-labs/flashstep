@@ -58,6 +58,22 @@ contract MarketCapReader {
         } catch {
             revert NoValidMarketCap();
         }
+        return _withSupply(result, endBlock);
+    }
+
+    /// @notice Live display only; settlement still requires a captured, completed endpoint.
+    /// Checkpoint supply comes from the last completed block, never the executing block.
+    function previewMarketCap() external view returns (MarketCapReading memory result) {
+        if (i_supplyMode == SupplyMode.Unsupported || block.number == 0) revert NoValidMarketCap();
+        result.reading = i_priceReader.preview();
+        return _withSupply(result, block.number - 1);
+    }
+
+    function _withSupply(MarketCapReading memory result, uint256 endBlock)
+        private
+        view
+        returns (MarketCapReading memory)
+    {
         if (i_supplyMode == SupplyMode.Fixed) {
             result.totalSupply = i_fixedSupply;
         } else {
@@ -82,5 +98,6 @@ contract MarketCapReader {
         (uint256 high,) = Math.mul512(result.reading.price, result.totalSupply);
         if (high >= baseUnit) revert NoValidMarketCap(); // Math.mulDiv would panic past uint256.
         result.marketCap = Math.mulDiv(result.reading.price, result.totalSupply, baseUnit);
+        return result;
     }
 }

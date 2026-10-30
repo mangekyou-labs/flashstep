@@ -10,6 +10,7 @@ export const payers = {
     up: "#167349",
     down: "#b6333b",
     address: (process.env.NEXT_PUBLIC_ROUNDS_ADDRESS || zeroAddress) as Address,
+    thresholdAddress: (process.env.NEXT_PUBLIC_THRESHOLD_ADDRESS || zeroAddress) as Address,
     chainId: 31337,
     quoteTicker: "ETH",
   },
@@ -22,6 +23,9 @@ export const payers = {
     down: "#ae2935",
     address: (process.env.NEXT_PUBLIC_BASE_ROUNDS_ADDRESS ||
       process.env.NEXT_PUBLIC_ROUNDS_ADDRESS ||
+      zeroAddress) as Address,
+    thresholdAddress: (process.env.NEXT_PUBLIC_BASE_THRESHOLD_ADDRESS ||
+      process.env.NEXT_PUBLIC_THRESHOLD_ADDRESS ||
       zeroAddress) as Address,
     chainId: 31337,
     quoteTicker: "ETH",

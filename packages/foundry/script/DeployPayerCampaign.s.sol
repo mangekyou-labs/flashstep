@@ -8,6 +8,7 @@ import { BasePoolReader } from "../contracts/readings/BasePoolReader.sol";
 import { MarketCapReader } from "../contracts/readings/MarketCapReader.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import { StakeCapRule } from "./lib/StakeCapRule.sol";
 
 /// @dev The identity calls of a Uniswap V3 pool that the vetting reads.
 interface IV3PoolIdentity {
@@ -39,6 +40,8 @@ contract DeployPayerCampaign is Script {
     error PoolTokensMismatch(address baseToken);
     error PoolFeeMismatch(uint24 actual, uint24 expected);
     error PoolNotRegistered(address registered);
+    error StakeTokenIsNotThePoolQuote(address stakeToken);
+    error StakeCapAboveRule(string campaign, uint256 stakeCap, uint256 maxByRule);
 
     /// @dev The Uniswap V3 factories the pool must come from. Fixed in code on live chains, so a config file
     /// cannot point the vetting at a look-alike factory. Chain 31337 reads the factory from the config.
@@ -200,6 +203,21 @@ contract DeployPayerCampaign is Script {
         if (actualFee != cfg.poolFee) revert PoolFeeMismatch(actualFee, cfg.poolFee);
         address registered = IV3FactoryRegistry(expectedFactory).getPool(token0, token1, actualFee);
         if (registered != cfg.pool) revert PoolNotRegistered(registered);
+
+        if (!cfg.allowStakeCapAboveRule) _checkStakeCapRule(cfg, token0 == cfg.baseToken ? token1 : token0, actualFee);
+    }
+
+    /// @dev The Stake cap rule of thumb (docs/implementation/payer-deploy.md). Depth is the quote token the
+    /// pool holds, so the rule only measures a stake token that is that quote token.
+    function _checkStakeCapRule(Config memory cfg, address quoteToken, uint24 fee) internal view {
+        if (cfg.stakeToken != quoteToken) revert StakeTokenIsNotThePoolQuote(cfg.stakeToken);
+        uint256 depth = IERC20(quoteToken).balanceOf(cfg.pool);
+        uint256 maxUpDown = StakeCapRule.maxStakeCap(depth, cfg.updown.windowSeconds, cfg.lookbackSeconds, fee);
+        if (cfg.updown.stakeCap > maxUpDown) revert StakeCapAboveRule("updown", cfg.updown.stakeCap, maxUpDown);
+        uint256 maxThreshold = StakeCapRule.maxStakeCap(depth, cfg.threshold.windowSeconds, cfg.lookbackSeconds, fee);
+        if (cfg.threshold.stakeCap > maxThreshold) {
+            revert StakeCapAboveRule("threshold", cfg.threshold.stakeCap, maxThreshold);
+        }
     }
 
     function _requireCode(string memory what, address target) private view {
@@ -258,6 +276,16 @@ contract DeployPayerCampaign is Script {
         else if (_eq(mode, "Checkpoints")) cfg.threshold.supplyMode = MarketCapReader.SupplyMode.Checkpoints;
         else if (!_eq(mode, "Unsupported")) revert InvalidConfig("threshold.supplyMode");
         cfg.threshold.fixedSupply = vm.parseJsonUint(json, ".threshold.fixedSupply");
+
+        // A Campaign that ends before its first Round is over would never settle anything.
+        uint64 upDownDuration = cfg.updown.durationSeconds;
+        if (upDownDuration != 0 && upDownDuration <= cfg.updown.tradingSeconds) {
+            revert InvalidConfig("updown.durationSeconds");
+        }
+        uint64 thresholdDuration = cfg.threshold.durationSeconds;
+        if (thresholdDuration != 0 && thresholdDuration <= cfg.threshold.tradingSeconds) {
+            revert InvalidConfig("threshold.durationSeconds");
+        }
     }
 
     function _eq(string memory a, string memory b) private pure returns (bool) {

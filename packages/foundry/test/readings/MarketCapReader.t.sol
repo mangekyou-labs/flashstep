@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { Test } from "forge-std/Test.sol";
-import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import { ERC20Votes } from "@openzeppelin/contracts/token/ERC20/extensions/ERC20Votes.sol";
-import { EIP712 } from "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
-import { BasePoolReader } from "../../contracts/readings/BasePoolReader.sol";
-import { MarketCapReader } from "../../contracts/readings/MarketCapReader.sol";
-import { MetadataOnlyToken, MockBasePool, MockReadingToken } from "../mocks/MockBasePool.sol";
+import {Test} from "forge-std/Test.sol";
+import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import {ERC20Votes} from "@openzeppelin/contracts/token/ERC20/extensions/ERC20Votes.sol";
+import {EIP712} from "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
+import {BasePoolReader} from "../../contracts/readings/BasePoolReader.sol";
+import {MarketCapReader} from "../../contracts/readings/MarketCapReader.sol";
+import {MetadataOnlyToken, MockBasePool, MockReadingToken} from "../mocks/MockBasePool.sol";
 
 contract ReadingVotesToken is ERC20Votes {
     constructor() ERC20("Reading token", "READ") EIP712("Reading token", "1") {
@@ -51,6 +51,17 @@ contract MarketCapReaderTest is Test {
         pool.write(0);
         prices = new BasePoolReader(address(pool), address(token), 30);
         caps = new MarketCapReader(prices, MarketCapReader.SupplyMode.Checkpoints, 0);
+    }
+
+    function testLivePreviewUsesLastCompletedSupplyWithoutCapturingSettlementReading() public {
+        vm.roll(515);
+        vm.warp(1_030);
+        token.mint(1_000_000 ether);
+        MarketCapReader.MarketCapReading memory value = caps.previewMarketCap();
+        assertEq(value.marketCap, 1_000e36);
+        assertEq(value.totalSupply, 1_000 ether);
+        vm.expectRevert();
+        prices.read(515);
     }
 
     function testFlashMintCaptureUsesFinalEndBlockSupplyAndIgnoresLaterMint() public {

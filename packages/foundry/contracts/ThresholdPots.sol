@@ -186,6 +186,23 @@ contract ThresholdPots is Ownable, ReentrancyGuard, StakeAsset {
         return s_positions[roundId][player];
     }
 
+    /// @notice Total payout on the selected side if it wins, including an optional new stake.
+    /// This is a current-split preview, not a guaranteed return. Zero amount quotes held stakes.
+    function quoteStake(uint256 roundId, address player, Side side, uint256 amount) external view returns (uint256) {
+        Round memory r = _viewRound(roundId);
+        Position memory p = s_positions[roundId][player];
+        if (p.claimed) return 0;
+        uint256 total = (side == Side.Yes ? r.yesTotal : r.noTotal) + amount;
+        if (total == 0) return 0;
+        return Math.mulDiv((side == Side.Yes ? p.yes : p.no) + amount, r.pot + amount, total);
+    }
+
+    /// @notice A live comparison for display, never used as a settlement input.
+    function currentValue(uint256 roundId) external view returns (uint256) {
+        Round memory r = _viewRound(roundId);
+        return r.metric == Metric.Price ? r.reader.preview().price : r.marketCapReader.previewMarketCap().marketCap;
+    }
+
     function stake(uint256 roundId, Side side, uint256 amount) external payable nonReentrant {
         if (phase(roundId) != Phase.Trading) revert OutsideTrading();
         if (amount == 0) revert InvalidAmount();

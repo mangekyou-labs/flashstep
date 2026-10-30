@@ -101,6 +101,33 @@ try {
   const runDriver = (args, extraEnv = {}, input = "") =>
     spawnSync(process.execPath, [driverPath, ...args], { cwd: ROOT, env: { ...env, ...extraEnv }, encoding: "utf8", input });
 
+  // Runs the driver and types each reply once its prompt has appeared on stdout. Resolves when the driver exits.
+  const runDriverAnswering = (args, extraEnv, replies) =>
+    new Promise((resolve, reject) => {
+      const child = spawn(process.execPath, [driverPath, ...args], { cwd: ROOT, env: { ...env, ...extraEnv }, stdio: ["pipe", "pipe", "pipe"] });
+      children.push(child);
+      let stdout = "";
+      let stderr = "";
+      let next = 0;
+      const timer = setTimeout(() => {
+        child.kill("SIGTERM");
+        reject(new Error(`The driver did not finish. Output so far:\n${stdout}`));
+      }, 120_000);
+      child.stdout.on("data", (chunk) => {
+        stdout += chunk;
+        while (next < replies.length && replies[next][0].test(stdout)) {
+          child.stdin.write(replies[next][1]);
+          stdout = stdout.replace(replies[next][0], "");
+          next++;
+        }
+      });
+      child.stderr.on("data", (chunk) => (stderr += chunk));
+      child.on("close", (status) => {
+        clearTimeout(timer);
+        resolve({ status, stdout, stderr });
+      });
+    });
+
   // 0. The gate. A raw key is refused; anything but a typed yes sends nothing; the skip works on a local chain only.
   const refusedKey = runDriver(["--config", configPath, "--network", url, "--private-key", "0x01"]);
   assert.notEqual(refusedKey.status, 0);
@@ -112,6 +139,33 @@ try {
   assert.match(declined.stdout, /Type "yes" to continue/);
   assert.equal(existsSync(declinedOut), false, "nothing was deployed after a no");
   assert.equal((await provider.getTransactionCount(payer)), 0, "the payer sent nothing after a no");
+
+  // The pre-funding gate (gate 2). The first answer is yes, so the contracts are deployed; the second is no, so
+  // nothing may be funded or seeded. Each answer is typed only after its prompt appears, as a person would: a
+  // readline closed after the first answer would otherwise swallow a second line piped in at the start.
+  const gateTwoOut = fileURLToPath(new URL(`../cache-payer/e2e-gate2-${port}.json`, import.meta.url));
+  const answered = await runDriverAnswering(
+    ["--config", configPath, "--network", url, "--local-sender", payer],
+    { PAYER_DEPLOY_OUT: gateTwoOut },
+    [
+      [/Deploy the contracts from the payer wallet now\? Type "yes" to continue: /, "yes\n"],
+      [/Send the funds and start both Campaigns now\? Type "yes" to continue: /, "no\n"],
+    ]
+  );
+  assert.notEqual(answered.status, 0, "a no at the pre-funding gate stops the run");
+  assert.match(answered.stderr, /Not confirmed\. Nothing was sent\./);
+  assert.equal(existsSync(gateTwoOut), true, "the first yes deployed the contracts");
+  const gateTwo = JSON.parse(readFileSync(gateTwoOut, "utf8"));
+  assert.equal((await quote.balanceOf(payer)).toString(), payerFunds.toString(), "the payer funded nothing after a no");
+  assert.equal((await quote.balanceOf(gateTwo.upDown)).toString(), "0", "UpDownRounds holds no tokens after a no");
+  assert.equal((await quote.balanceOf(gateTwo.threshold)).toString(), "0", "ThresholdPots holds no tokens after a no");
+  for (const [file, name, address] of [["UpDownRounds", "UpDownRounds", gateTwo.upDown], ["ThresholdPots", "ThresholdPots", gateTwo.threshold]]) {
+    const unfunded = new ethers.Contract(address, artifact(file, name).abi, provider);
+    assert.equal((await unfunded.fundingBalance()).toString(), "0", `${name} has no funding after a no`);
+    assert.equal((await unfunded.currentRound()).toString(), "0", `${name} has no running Round after a no`);
+  }
+
+  console.log("PASS: a no at the pre-funding gate leaves the deployed contracts unfunded and unseeded");
 
   const otherPort = port + 1000;
   const otherAnvil = spawn("anvil", ["--port", String(otherPort), "--silent", "--chain-id", "8453"], { env, stdio: "ignore" });

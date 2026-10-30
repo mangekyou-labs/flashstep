@@ -7,7 +7,7 @@ import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { BaseError, erc20Abi, formatUnits, parseUnits, zeroAddress } from "viem";
 import { useAccount, usePublicClient, useSwitchChain, useWriteContract } from "wagmi";
-import { PoolBalance, SettleTx, ShareBar } from "~~/components/rounds/ProofPanels";
+import { NoExplorerNote, ProofPanels, SettleTxCell } from "~~/components/rounds/ProofPanels";
 import { readingLabel } from "~~/components/rounds/ReadingChart";
 import { payerFor } from "~~/config/payers";
 import { useSettleTxs } from "~~/utils/rounds/proof";
@@ -188,7 +188,7 @@ export function ThresholdRoundPage() {
       );
     },
   });
-  const proof = useSettleTxs(payer, "threshold", history.data);
+  const settleTxs = useSettleTxs(payer, "threshold", history.data);
   function findRound(event: SyntheticEvent<HTMLFormElement>) {
     event.preventDefault();
     const id = String(new FormData(event.currentTarget).get("round"));
@@ -466,8 +466,7 @@ export function ThresholdRoundPage() {
             {failure}
           </div>
         )}
-        <ShareBar payer={payer} market="threshold" roundId={data?.id || undefined} />
-        <PoolBalance payer={payer} market="threshold" />
+        <ProofPanels payer={payer} market="threshold" roundId={data?.id || undefined} />
         {!!data?.current && (
           <section className="round-history">
             <h2>Recent threshold Rounds</h2>
@@ -480,53 +479,52 @@ export function ThresholdRoundPage() {
                 {history.isPending ? "Loading recent Rounds…" : "The first Round is trading."}
               </p>
             ) : (
-              <table>
-                <thead>
-                  <tr>
-                    <th>Round</th>
-                    <th>Result</th>
-                    <th>Threshold</th>
-                    <th>End Reading</th>
-                    <th>Settle tx</th>
-                    <th>
-                      <span className="sr-only">Action</span>
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {history.data.map(row => (
-                    <tr key={String(row.id)}>
-                      <td>#{String(row.id)}</td>
-                      <td>
-                        {row.phase === 4
-                          ? "Refunded"
-                          : row.round.result
-                            ? thresholdResults[row.round.result]
-                            : phaseNames[row.phase]}
-                      </td>
-                      <td>
-                        {readingLabel(row.round.threshold)} {payer.quoteTicker}
-                      </td>
-                      <td>
-                        {row.round.endReading.price ? `${readingLabel(row.round.endValue)} ${payer.quoteTicker}` : "—"}
-                      </td>
-                      <td>
-                        <SettleTx
-                          payer={payer}
-                          settled={row.phase === 3 || row.phase === 4}
-                          hash={proof.data?.[String(row.id)]}
-                        />
-                      </td>
-                      <td>
-                        <button onClick={() => setSelected(row.id)}>
-                          {row.claimable > 0n ? "View claim" : "View"}
-                          <span className="sr-only"> Round {String(row.id)}</span>
-                        </button>
-                      </td>
+              <>
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Round</th>
+                      <th>Result</th>
+                      <th>Threshold</th>
+                      <th>End Reading</th>
+                      <th>Settle tx</th>
+                      <th>
+                        <span className="sr-only">Action</span>
+                      </th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {history.data.map(row => (
+                      <tr key={String(row.id)}>
+                        <td>#{String(row.id)}</td>
+                        <td>
+                          {row.phase === 4
+                            ? "Refunded"
+                            : row.round.result
+                              ? thresholdResults[row.round.result]
+                              : phaseNames[row.phase]}
+                        </td>
+                        <td>
+                          {readingLabel(row.round.threshold)} {payer.quoteTicker}
+                        </td>
+                        <td>
+                          {row.round.endReading.price
+                            ? `${readingLabel(row.round.endValue)} ${payer.quoteTicker}`
+                            : "—"}
+                        </td>
+                        <SettleTxCell payer={payer} round={row} txs={settleTxs} />
+                        <td>
+                          <button onClick={() => setSelected(row.id)}>
+                            {row.claimable > 0n ? "View claim" : "View"}
+                            <span className="sr-only"> Round {String(row.id)}</span>
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                <NoExplorerNote payer={payer} />
+              </>
             )}
           </section>
         )}

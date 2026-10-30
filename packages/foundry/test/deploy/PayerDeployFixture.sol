@@ -79,8 +79,7 @@ abstract contract PayerDeployFixture is Test {
         quote = new StakeTokenMock();
         base = new MockReadingToken(18, 100e18);
         factory = new MockV3Factory();
-        (address token0, address token1) =
-            address(base) < address(quote) ? (address(base), address(quote)) : (address(quote), address(base));
+        (address token0, address token1) = _sortedTokens();
         pool = new MockV3Pool(address(factory), token0, token1, 500);
         pool.write(0);
         factory.setPool(token0, token1, 500, address(pool));
@@ -88,6 +87,12 @@ abstract contract PayerDeployFixture is Test {
         quote.setBalance(payer, 1_000e18);
         configuredStakeToken = address(quote);
         configuredFactory = address(factory);
+    }
+
+    /// @dev The pool's tokens in Uniswap V3 order (token0 is the lower address).
+    function _sortedTokens() internal view returns (address token0, address token1) {
+        (token0, token1) =
+            address(base) < address(quote) ? (address(base), address(quote)) : (address(quote), address(base));
     }
 
     /// @dev Call at the top of every test, after changing any setting variable. Files are named from the

@@ -29,7 +29,11 @@ contract PayerStakeCapRuleTest is PayerDeployFixture {
         upDownCap = max + 1;
         thresholdCap = max;
         _prepare();
-        vm.expectRevert(abi.encodeWithSelector(DeployPayerCampaign.StakeCapAboveRule.selector, "updown", max + 1, max));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                DeployPayerCampaign.StakeCapAboveRule.selector, DeployPayerCampaign.Campaign.UpDown, max + 1, max
+            )
+        );
         script.preflight();
     }
 
@@ -39,7 +43,9 @@ contract PayerStakeCapRuleTest is PayerDeployFixture {
         thresholdCap = max * 2;
         _prepare();
         vm.expectRevert(
-            abi.encodeWithSelector(DeployPayerCampaign.StakeCapAboveRule.selector, "threshold", max * 2, max)
+            abi.encodeWithSelector(
+                DeployPayerCampaign.StakeCapAboveRule.selector, DeployPayerCampaign.Campaign.Threshold, max * 2, max
+            )
         );
         script.preflight();
     }
@@ -52,7 +58,12 @@ contract PayerStakeCapRuleTest is PayerDeployFixture {
         thresholdCap = _max(thresholdWindow);
         _prepare();
         vm.expectRevert(
-            abi.encodeWithSelector(DeployPayerCampaign.StakeCapAboveRule.selector, "updown", capForLongWindow, _max(2))
+            abi.encodeWithSelector(
+                DeployPayerCampaign.StakeCapAboveRule.selector,
+                DeployPayerCampaign.Campaign.UpDown,
+                capForLongWindow,
+                _max(2)
+            )
         );
         script.preflight();
     }
@@ -81,10 +92,45 @@ contract PayerStakeCapRuleTest is PayerDeployFixture {
         script.preflight();
     }
 
+    function test_allowingACapAboveTheRuleDoesNotSkipTheStakeTokenIdentityCheck() public {
+        allowAboveRule = true;
+        configuredStakeToken = address(base); // a contract, but not the pool's quote token
+        _prepare();
+        vm.expectRevert(abi.encodeWithSelector(DeployPayerCampaign.StakeTokenIsNotThePoolQuote.selector, address(base)));
+        script.preflight();
+    }
+
+    function test_allowingACapAboveTheRuleDoesNotSkipTheStakeTokenCodeCheck() public {
+        allowAboveRule = true;
+        configuredStakeToken = makeAddr("not a contract");
+        _prepare();
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                DeployPayerCampaign.NotAContract.selector, DeployPayerCampaign.Vetted.StakeToken, configuredStakeToken
+            )
+        );
+        script.preflight();
+    }
+
+    function test_ethIsTheOnlyStakeTokenBesidesTheQuoteAndNeedsTheCapAboveRuleFlag() public {
+        configuredStakeToken = address(0);
+        _prepare();
+        vm.expectRevert(abi.encodeWithSelector(DeployPayerCampaign.StakeTokenIsNotThePoolQuote.selector, address(0)));
+        script.preflight(); // the rule cannot measure ETH against a USDC pool, so it is refused unless allowed
+
+        allowAboveRule = true;
+        _prepare();
+        script.preflight();
+    }
+
     function test_aCampaignDurationMustOutlastTheTradingPhase() public {
         upDownDuration = upDownTrading; // would end before the first Round is over
         _prepare();
-        vm.expectRevert(abi.encodeWithSelector(DeployPayerCampaign.InvalidConfig.selector, "updown.durationSeconds"));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                DeployPayerCampaign.InvalidConfig.selector, DeployPayerCampaign.ConfigField.UpDownDuration
+            )
+        );
         script.preflight();
     }
 }

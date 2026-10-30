@@ -23,6 +23,8 @@ contract StakeCapRuleForkTest is Test {
     address internal constant POOL = 0xd0b53D9277642d899DF5C87A3966A349A798F224;
     address internal constant WETH = 0x4200000000000000000000000000000000000006;
     address internal constant USDC = 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913;
+    uint256 internal constant LOOKBACK = 30;
+    uint256 internal constant ONE_TICK = 1e14; // 0.01%, the finest price step a TWAP over integer ticks can show
     uint160 internal constant MAX_SQRT_RATIO_MINUS_ONE =
         1_461_446_703_485_210_103_287_273_052_203_988_822_378_723_970_341;
 
@@ -82,8 +84,8 @@ contract StakeCapRuleForkTest is Test {
         uint256 depth = IERC20(USDC).balanceOf(POOL);
         assertEq(depth, 13_633_808_211_200, "USDC held by the pool at the pinned block (evidence json)");
         uint256 max = StakeCapRule.maxStakeCap(depth, 30, 30, 500);
-        assertApproxEqRel(max, 71_519_274, 1e15, "about 71.52 USDC for a 30 second Window");
-        assertApproxEqRel(StakeCapRule.maxStakeCap(depth, 2, 30, 500), 7_449_718, 1e15, "about 7.45 USDC for 2 seconds");
+        assertApproxEqRel(max, 33_089_948, 1e15, "about 33.09 USDC for a 30 second Window");
+        assertApproxEqRel(StakeCapRule.maxStakeCap(depth, 2, 30, 500), 2_845_839, 1e15, "about 2.85 USDC for 2 seconds");
 
         _writeConfig(max, max, false);
         script.preflight();
@@ -92,26 +94,81 @@ contract StakeCapRuleForkTest is Test {
         script.preflight();
     }
 
-    function test_theRuleAssumesAPriceMoveTheRealPoolCannotBePushedAnywhereNear() public {
-        uint256 depth = IERC20(USDC).balanceOf(POOL);
-        // Rule model for a 30 second Window, lookback 30: m = sigma * sqrt(30) * 30 / 2, about 0.82%.
-        uint256 assumedMove = 1e14 * 5_477_225_575 / 1e9 * 30 / 2; // sqrt(30) = 5.477225575, in 1e18
-        uint256 volume = depth * assumedMove / 2 / 1e18; // quote volume the rule says moves the price by `assumedMove`
-        assertGt(volume, 50_000e6, "the rule prices the move at tens of thousands of USDC");
+    /// @dev What this checks: for the push volume the rule prices, the real pool's spot price moves no more than the
+    /// rule's constant product model says, so the real cost of the push is at least what the rule assumes, and the
+    /// BasePoolReader Reading follows the spot push diluted by min(Window, lookback) / lookback, to within one tick.
+    /// What it does not check: sigma (the natural drift), arbitrageurs undoing the push block by block (the rule
+    /// charges a block's fees per held block; nothing here simulates the reversion), or the cited daily volume.
+    function test_theRuleBoundsTheRealCostOfMovingTheReading_30SecondWindow() public {
+        _checkTheRuleAgainstTheRealPool(30);
+    }
 
-        (uint160 before,,,,,,) = IV3Pool(POOL).slot0();
+    function test_theRuleBoundsTheRealCostOfMovingTheReading_10SecondWindow() public {
+        _checkTheRuleAgainstTheRealPool(10);
+    }
+
+    function test_theRuleBoundsTheRealCostOfMovingTheReading_2SecondWindow() public {
+        _checkTheRuleAgainstTheRealPool(2);
+    }
+
+    function _checkTheRuleAgainstTheRealPool(uint256 windowSeconds) internal {
+        uint256 depth = IERC20(USDC).balanceOf(POOL);
+        uint256 pushAssumed = StakeCapRule.spotPush(windowSeconds, LOOKBACK); // spot push the rule prices
+        uint256 volume = depth * pushAssumed / 2 / 1e18; // quote volume the rule says causes it
+        uint256 held = Math.min(windowSeconds, LOOKBACK);
+
+        (uint256 readingMove, uint256 spotMove) = _pushAndRead(volume, windowSeconds);
+        emit log_named_uint("window seconds", windowSeconds);
+        emit log_named_uint("push volume the rule prices (raw USDC)", volume);
+        emit log_named_uint("spot push the rule assumes (1e18)", pushAssumed);
+        emit log_named_uint("spot push the real pool shows (1e18)", spotMove);
+        emit log_named_uint("Reading move the real BasePoolReader shows (1e18)", readingMove);
+        emit log_named_uint("Reading move the rule requires (1e18)", StakeCapRule.readingMove(windowSeconds, LOOKBACK));
+
+        assertGt(spotMove, 0, "the swap moved the price");
+        assertLe(spotMove, pushAssumed, "the real pool is at least as deep as the balance the rule assumes");
+        // The Reading shows the spot push diluted over the lookback. One tick (about 0.01%) is the Reading's resolution.
+        assertLe(
+            readingMove,
+            Math.mulDiv(spotMove, held, LOOKBACK) + ONE_TICK,
+            "the Reading cannot move more than the diluted spot push"
+        );
+
+        // The real cost to cause the spot push the rule assumes, from the real pool's response to this swap:
+        // volume scales with the push for a small push, fees and average slippage are paid for each held block.
+        uint256 realVolumeForAssumedPush = Math.mulDiv(volume, pushAssumed, spotMove);
+        uint256 feeAndSlip = 2 * 500 * 1e18 / 1_000_000 + pushAssumed / 2;
+        uint256 realCostPerBlock = Math.mulDiv(realVolumeForAssumedPush, feeAndSlip, 1e18);
+        uint256 realCap =
+            StakeCapRule.holdBlocks(windowSeconds, LOOKBACK) * realCostPerBlock / StakeCapRule.SAFETY_DIVISOR;
+        uint256 ruleCap = StakeCapRule.maxStakeCap(depth, windowSeconds, LOOKBACK, 500);
+        emit log_named_uint("cap the rule allows (raw USDC)", ruleCap);
+        emit log_named_uint("cap the real pool's response supports (raw USDC)", realCap);
+        assertGe(realCap, ruleCap, "the real pool is deeper than the rule assumes, so the rule's cap is conservative");
+    }
+
+    /// @dev Takes the start Reading, pushes the pool by buying the base token with `volume` of the quote token, lets
+    /// `windowSeconds` pass at the pushed price (no arbitrage), takes the end Reading, and reverts the fork state.
+    function _pushAndRead(uint256 volume, uint256 windowSeconds)
+        internal
+        returns (uint256 readingMove, uint256 spotMove)
+    {
+        uint256 snapshot = vm.snapshotState();
+        BasePoolReader reader = new BasePoolReader(POOL, WETH, uint32(LOOKBACK));
+        uint256 startReading = reader.preview().price;
+        (uint160 sqrtBefore,,,,,,) = IV3Pool(POOL).slot0();
+
         deal(USDC, address(this), volume);
         IV3Pool(POOL).swap(address(this), false, int256(volume), MAX_SQRT_RATIO_MINUS_ONE, "");
-        (uint160 afterSwap,,,,,,) = IV3Pool(POOL).slot0();
+        (uint160 sqrtAfter,,,,,,) = IV3Pool(POOL).slot0();
+        uint256 sqrtRatio = Math.mulDiv(sqrtAfter, 1e18, sqrtBefore);
+        spotMove = Math.mulDiv(sqrtRatio, sqrtRatio, 1e18) - 1e18;
 
-        uint256 sqrtRatio = Math.mulDiv(afterSwap, 1e18, before);
-        uint256 realMove = Math.mulDiv(sqrtRatio, sqrtRatio, 1e18) - 1e18;
-        emit log_named_uint("assumed relative price move (1e18)", assumedMove);
-        emit log_named_uint("realized relative price move (1e18)", realMove);
-        assertGt(realMove, 0, "the swap moved the price");
-        assertLt(
-            realMove, assumedMove, "real depth is deeper than the balance the rule assumes, so the rule is conservative"
-        );
+        vm.warp(block.timestamp + windowSeconds);
+        vm.roll(block.number + (windowSeconds + 1) / 2);
+        uint256 endReading = reader.preview().price;
+        readingMove = endReading > startReading ? Math.mulDiv(endReading, 1e18, startReading) - 1e18 : 0;
+        vm.revertToState(snapshot);
     }
 
     /// @dev Uniswap V3 swap callback: pay the quote token the pool is owed.

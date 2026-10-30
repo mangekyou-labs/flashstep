@@ -33,15 +33,36 @@ contract DeployPayerCampaign is Script {
     error SignerIsNotPayer(address signer, address payer);
     error PayerBalanceTooLow(uint256 required, uint256 balance);
     error NotOwnedBySigner(address target, address owner, address signer);
-    error InvalidConfig(string reason);
-    error NotAContract(string what, address target);
+    error InvalidConfig(ConfigField field);
+    error NotAContract(Vetted what, address target);
     error UnsupportedChain(uint256 chainId);
     error WrongFactory(address actual, address expected);
     error PoolTokensMismatch(address baseToken);
     error PoolFeeMismatch(uint24 actual, uint24 expected);
     error PoolNotRegistered(address registered);
     error StakeTokenIsNotThePoolQuote(address stakeToken);
-    error StakeCapAboveRule(string campaign, uint256 stakeCap, uint256 maxByRule);
+    error StakeCapAboveRule(Campaign campaign, uint256 stakeCap, uint256 maxByRule);
+
+    enum Campaign {
+        UpDown,
+        Threshold
+    }
+
+    /// @dev The addresses whose code the vetting checks.
+    enum Vetted {
+        Pool,
+        BaseToken,
+        Factory,
+        StakeToken
+    }
+
+    /// @dev The config settings that can be invalid for a reason other than a bad address.
+    enum ConfigField {
+        ThresholdMetric,
+        ThresholdSupplyMode,
+        UpDownDuration,
+        ThresholdDuration
+    }
 
     /// @dev The Uniswap V3 factories the pool must come from. Fixed in code on live chains, so a config file
     /// cannot point the vetting at a look-alike factory. Chain 31337 reads the factory from the config.
@@ -136,11 +157,11 @@ contract DeployPayerCampaign is Script {
         if (upDown.owner() != signer) revert NotOwnedBySigner(address(upDown), upDown.owner(), signer);
         if (threshold.owner() != signer) revert NotOwnedBySigner(address(threshold), threshold.owner(), signer);
 
+        bool isEth = cfg.stakeToken == address(0);
         uint256 required = cfg.updown.funding + cfg.threshold.funding;
-        uint256 held = cfg.stakeToken == address(0) ? signer.balance : IERC20(cfg.stakeToken).balanceOf(signer);
+        uint256 held = isEth ? signer.balance : IERC20(cfg.stakeToken).balanceOf(signer);
         if (held < required) revert PayerBalanceTooLow(required, held);
 
-        bool isEth = cfg.stakeToken == address(0);
         if (!isEth) {
             IERC20(cfg.stakeToken).forceApprove(address(upDown), cfg.updown.funding);
             IERC20(cfg.stakeToken).forceApprove(address(threshold), cfg.threshold.funding);
@@ -188,10 +209,10 @@ contract DeployPayerCampaign is Script {
     /// @dev Code and identity checks on every address the Campaigns will trust, before anything is signed.
     function _vet(Config memory cfg) internal view {
         address expectedFactory = _expectedFactory(cfg);
-        _requireCode("pool", cfg.pool);
-        _requireCode("baseToken", cfg.baseToken);
-        _requireCode("factory", expectedFactory);
-        if (cfg.stakeToken != address(0)) _requireCode("stakeToken", cfg.stakeToken);
+        _requireCode(Vetted.Pool, cfg.pool);
+        _requireCode(Vetted.BaseToken, cfg.baseToken);
+        _requireCode(Vetted.Factory, expectedFactory);
+        if (cfg.stakeToken != address(0)) _requireCode(Vetted.StakeToken, cfg.stakeToken);
 
         IV3PoolIdentity pool = IV3PoolIdentity(cfg.pool);
         address actualFactory = pool.factory();
@@ -204,23 +225,40 @@ contract DeployPayerCampaign is Script {
         address registered = IV3FactoryRegistry(expectedFactory).getPool(token0, token1, actualFee);
         if (registered != cfg.pool) revert PoolNotRegistered(registered);
 
-        if (!cfg.allowStakeCapAboveRule) _checkStakeCapRule(cfg, token0 == cfg.baseToken ? token1 : token0, actualFee);
+        address quoteToken = token0 == cfg.baseToken ? token1 : token0;
+        _checkStakeToken(cfg, quoteToken);
+        if (!cfg.allowStakeCapAboveRule) _checkStakeCapRule(cfg, quoteToken, actualFee);
     }
 
-    /// @dev The Stake cap rule of thumb (docs/implementation/payer-deploy.md). Depth is the quote token the
-    /// pool holds, so the rule only measures a stake token that is that quote token.
-    function _checkStakeCapRule(Config memory cfg, address quoteToken, uint24 fee) internal view {
+    /// @dev The stake token must be the pool's quote token, so the Readings and the Stake cap are in the same unit.
+    /// ETH is the one exception: the rule cannot measure it against an ERC-20 pool, so it needs the payer's explicit
+    /// `allowStakeCapAboveRule`. This check is not skipped by that flag for any ERC-20.
+    function _checkStakeToken(Config memory cfg, address quoteToken) internal pure {
+        if (cfg.stakeToken == address(0) && cfg.allowStakeCapAboveRule) return;
         if (cfg.stakeToken != quoteToken) revert StakeTokenIsNotThePoolQuote(cfg.stakeToken);
-        uint256 depth = IERC20(quoteToken).balanceOf(cfg.pool);
-        uint256 maxUpDown = StakeCapRule.maxStakeCap(depth, cfg.updown.windowSeconds, cfg.lookbackSeconds, fee);
-        if (cfg.updown.stakeCap > maxUpDown) revert StakeCapAboveRule("updown", cfg.updown.stakeCap, maxUpDown);
-        uint256 maxThreshold = StakeCapRule.maxStakeCap(depth, cfg.threshold.windowSeconds, cfg.lookbackSeconds, fee);
-        if (cfg.threshold.stakeCap > maxThreshold) {
-            revert StakeCapAboveRule("threshold", cfg.threshold.stakeCap, maxThreshold);
-        }
     }
 
-    function _requireCode(string memory what, address target) private view {
+    /// @dev The Stake cap rule of thumb (docs/implementation/payer-deploy.md). Depth is the quote token the pool
+    /// holds. Only this revert is bypassed by `allowStakeCapAboveRule`.
+    function _checkStakeCapRule(Config memory cfg, address quoteToken, uint24 fee) internal view {
+        uint256 depth = IERC20(quoteToken).balanceOf(cfg.pool);
+        _requireCapUnderRule(Campaign.UpDown, cfg.updown.stakeCap, cfg.updown.windowSeconds, cfg, depth, fee);
+        _requireCapUnderRule(Campaign.Threshold, cfg.threshold.stakeCap, cfg.threshold.windowSeconds, cfg, depth, fee);
+    }
+
+    function _requireCapUnderRule(
+        Campaign campaign,
+        uint256 stakeCap,
+        uint32 windowSeconds,
+        Config memory cfg,
+        uint256 depth,
+        uint24 fee
+    ) private pure {
+        uint256 maxByRule = StakeCapRule.maxStakeCap(depth, windowSeconds, cfg.lookbackSeconds, fee);
+        if (stakeCap > maxByRule) revert StakeCapAboveRule(campaign, stakeCap, maxByRule);
+    }
+
+    function _requireCode(Vetted what, address target) private view {
         if (target.code.length == 0) revert NotAContract(what, target);
     }
 
@@ -263,7 +301,7 @@ contract DeployPayerCampaign is Script {
 
         string memory metric = vm.parseJsonString(json, ".threshold.metric");
         cfg.threshold.metric = _eq(metric, "MarketCap") ? ThresholdPots.Metric.MarketCap : ThresholdPots.Metric.Price;
-        if (!_eq(metric, "MarketCap") && !_eq(metric, "Price")) revert InvalidConfig("threshold.metric");
+        if (!_eq(metric, "MarketCap") && !_eq(metric, "Price")) revert InvalidConfig(ConfigField.ThresholdMetric);
         cfg.threshold.threshold = vm.parseJsonUint(json, ".threshold.threshold");
         cfg.threshold.openingStake = vm.parseJsonUint(json, ".threshold.openingStake");
         cfg.threshold.stakeCap = vm.parseJsonUint(json, ".threshold.stakeCap");
@@ -274,18 +312,23 @@ contract DeployPayerCampaign is Script {
         string memory mode = vm.parseJsonString(json, ".threshold.supplyMode");
         if (_eq(mode, "Fixed")) cfg.threshold.supplyMode = MarketCapReader.SupplyMode.Fixed;
         else if (_eq(mode, "Checkpoints")) cfg.threshold.supplyMode = MarketCapReader.SupplyMode.Checkpoints;
-        else if (!_eq(mode, "Unsupported")) revert InvalidConfig("threshold.supplyMode");
+        else if (!_eq(mode, "Unsupported")) revert InvalidConfig(ConfigField.ThresholdSupplyMode);
         cfg.threshold.fixedSupply = vm.parseJsonUint(json, ".threshold.fixedSupply");
 
         // A Campaign that ends before its first Round is over would never settle anything.
-        uint64 upDownDuration = cfg.updown.durationSeconds;
-        if (upDownDuration != 0 && upDownDuration <= cfg.updown.tradingSeconds) {
-            revert InvalidConfig("updown.durationSeconds");
-        }
-        uint64 thresholdDuration = cfg.threshold.durationSeconds;
-        if (thresholdDuration != 0 && thresholdDuration <= cfg.threshold.tradingSeconds) {
-            revert InvalidConfig("threshold.durationSeconds");
-        }
+        _requireDurationOutlastsTradingPhase(
+            ConfigField.UpDownDuration, cfg.updown.durationSeconds, cfg.updown.tradingSeconds
+        );
+        _requireDurationOutlastsTradingPhase(
+            ConfigField.ThresholdDuration, cfg.threshold.durationSeconds, cfg.threshold.tradingSeconds
+        );
+    }
+
+    function _requireDurationOutlastsTradingPhase(ConfigField field, uint64 durationSeconds, uint32 tradingSeconds)
+        private
+        pure
+    {
+        if (durationSeconds != 0 && durationSeconds <= tradingSeconds) revert InvalidConfig(field);
     }
 
     function _eq(string memory a, string memory b) private pure returns (bool) {

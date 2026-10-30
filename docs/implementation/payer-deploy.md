@@ -4,6 +4,8 @@ Resolution and runbook for ticket 12 (issue #12, parent spec #1).
 
 The Payer deploys `UpDownRounds` and `ThresholdPots` from its own wallet, so the Payer owns both contracts and the developer holds nothing. The same script sets every Campaign setting and funds the seeded liquidity and the Opening stakes. See ADR 0004 and [GLOSSARY.md](../../GLOSSARY.md) for the roles.
 
+Wording: the **Payer** is the business that pays; in a white-label Campaign it is also the **Operator** (GLOSSARY). In this runbook "owner" means the contract's `Ownable` owner, which is the Payer acting as Operator. It holds the powers the **Liquidity provider** holds in the challenge contracts: it funds and seeds, changes the settings of later Rounds and withdraws what is unreserved.
+
 ## What ships
 
 | Piece | Path |
@@ -28,12 +30,12 @@ No file under `packages/foundry/contracts/` changed.
    ```
    Then `--account payer` selects it. For a hardware wallet use `--ledger`.
 3. An RPC. The `base` alias in `packages/foundry/foundry.toml` is the public `https://mainnet.base.org`. For a dedicated RPC, put the URL in `packages/foundry/.env` (gitignored) and never commit it. The driver refuses a raw remote URL; a network must be a `foundry.toml` alias, or a loopback URL for a local chain.
-4. The Payer holds the stake token for `updown.funding` plus `threshold.funding` plus the Threshold Opening stake, and enough ETH for gas.
+4. The Payer holds the stake token for `updown.funding` plus `threshold.funding`, and enough ETH for gas. The Threshold Opening stake is not extra: it is paid out of `threshold.funding`, so `threshold.funding` must be at least twice `threshold.openingStake` (one Opening stake on each side). The same holds for the UpDown `seed`, which comes out of `updown.funding`.
 5. A settings file (see the schema below). Keep it outside the repo or commit only a copy with no secrets; it holds addresses and amounts, never keys.
 
 ## The settings file
 
-Big integers are decimal strings in the stake token's raw units. `durationSeconds` of 0 means open-ended.
+Big integers are decimal strings in the stake token's raw units. `durationSeconds` of 0 means open-ended; above 0 it must outlast the Trading phase, and a new Round starts only while now is before the end time. See "Extras" for why `allowStakeCapAboveRule`, `durationSeconds` and the `MarketCap` metric are in the file.
 
 ```json
 {
@@ -68,22 +70,27 @@ Big integers are decimal strings in the stake token's raw units. `durationSecond
 }
 ```
 
-Each setting is set by the script and readable from the contracts afterward:
+### Reading each setting back
 
-| Setting | Where it lands | Read it with |
+Each setting is set by the script. Not every one has a getter, so the table says how each is read and which are derived. Round 1 is the Round the script seeds.
+
+| Setting | How it is read back | Kind |
 | --- | --- | --- |
-| Stake token | `i_stakeToken` on both contracts | `cast call <contract> "i_stakeToken()(address)"` |
-| Pool, base token, lookback | the `BasePoolReader` constructor; both contracts hold it as `i_reader` | `i_reader()` on each contract, then the reader's views |
-| Trading phase | `cutoff` of the Round (and the scheduled settings) | `round(roundId)` on each contract, `SettingsScheduled` events |
-| Window | `windowEnd` of the Round | `round(roundId)` |
-| Stake cap | `stakeCap` of the Round | `round(roundId)` |
-| Seed (UpDown) and Opening stake (Threshold) | `seededLiquidity` and `openingStake` of the Round | `round(roundId)` |
-| Market types and thresholds | UpDown is the up or down market; ThresholdPots carries `metric` and `threshold` per Round | `round(roundId)` on ThresholdPots |
-| Payout | `PAYOUT` on UpDown | `cast call <contract> "PAYOUT()(uint256)"` |
-| Owner / Round payer | `owner()` and the Round's `payer` | `owner()`, `round(roundId)` |
-| Funding | contract balance in the stake token | `balanceOf` of the contract |
+| Stake token | `cast call <contract> "i_stakeToken()(address)"` on both contracts | direct |
+| Pool, base token, lookback | `i_reader()` on each contract, then the reader's own views | direct |
+| Stake cap | `stakeCap` in `round(1)` | direct |
+| Seed (UpDown) | `seededLiquidity` in `round(1)` | direct |
+| Opening stake (Threshold) | `openingStake` in `round(1)`; `yesTotal` and `noTotal` both equal it | direct |
+| Metric and threshold (Threshold) | `metric` and `threshold` in `round(1)` on ThresholdPots; UpDown is the up or down market and has no metric | direct |
+| Payout (UpDown) | `cast call <contract> "PAYOUT()(uint256)"` | direct |
+| Owner and Round payer | `owner()`, and `payer` in `round(1)` | direct |
+| Funding | `balanceOf` of the contract in the stake token, and `fundingBalance()` (what is left after the seed or the Pot) | direct |
+| Trading phase length | `cutoff` in `round(1)` minus the seed time | derived: the contracts store only the absolute `cutoff` |
+| Window length | `windowEnd` minus `cutoff` in `round(1)` | derived: the contracts store only the absolute `windowEnd` |
+| End time (`durationSeconds` above 0), UpDown | `endTime` in the `SettingsScheduled` event the script triggers | event only: `endTime` has no getter |
+| End time (`durationSeconds` above 0), Threshold | `seedRound` emits no event that carries it, so it is read by behaviour: `currentRound()` is above 0 at `endTime - 1` and 0 at `endTime` | behaviour only |
 
-The local end-to-end run reads each of these back from the contracts and asserts them.
+The seed time is the block timestamp of the `fundAndSeed` transaction. The local end-to-end run and the Foundry tests read the direct and derived settings back from the contracts and assert them, and decode the `SettingsScheduled` event for the UpDown end time.
 
 ## Commands
 
@@ -108,7 +115,9 @@ To rehearse on Base Sepolia first, use `--network baseSepolia`. The script knows
 6. It broadcasts `fundAndSeed()`: `forceApprove` of the exact amounts, `fund`, `seedRound`, and the Threshold `fund` and `seedRound`.
 7. It prints the verify commands and the env hints for the settle bot and the page.
 
-A "no" at either gate sends nothing further. Deploying and funding are two separate broadcasts on purpose, so a mistake in the deploy table costs only deploy gas.
+A "no" at either gate sends nothing further. Deploying and funding are two separate broadcasts on purpose, so a mistake in the deploy table costs only deploy gas. After a "no" at gate 2 the two contracts exist and are owned by the Payer, but hold no stake token and have no Round; the local end-to-end run checks this.
+
+The gates live in the driver, not in the Solidity script. `fundAndSeed()` run directly, for example with `forge script --sig "fundAndSeed()"`, has no human yes: it asks nothing, shows nothing and sends. It does not repeat the vetting below, which runs in `preflight()` and `run()`. Use the driver for any real network. The script still refuses the worst mistakes by itself, before any transfer: a signer that is not the configured Payer, a contract the signer does not own, and a balance below the total funding.
 
 ### Gas pricing
 
@@ -122,6 +131,18 @@ The gate prices cost live as `(gas_used x gas_price + l1_fee + operator_fee) x e
 
 The human yes can be skipped only with `--skip-confirmation`, and only when the chain id is 31337 and the RPC is a loopback address. A skip against a chain-id 8453 loopback (a fork pretending to be Base) is refused, and the local-chain smoke checks this. There is no skip for any other network.
 
+## Extras beyond the ticket, and why each is there
+
+Each of these goes a little past the bare ticket. None can be used on a real network without the Payer choosing it.
+
+| Extra | Why it is here |
+| --- | --- |
+| `allowStakeCapAboveRule` | The rule is a rule of thumb built on an assumed volatility. A Payer who has read the derivation and decided to go over needs a way to say so on purpose; without it the script would be the only thing standing between the Payer and their own decision. It skips only the cap comparison. Stake token identity is still checked. It is also the only way to use ETH as the stake token, where the rule cannot price anything. |
+| `--local-sender` | The smoke test needs a signer with no password on a throwaway chain. It is accepted only on chain 31337 against a loopback RPC and only when it equals the configured Payer, so it cannot be used to sign for a real wallet. |
+| `durationSeconds` | A Campaign is "a fixed time" in the GLOSSARY, so the end time has to be set somewhere. It is set at the same moment as everything else, so the Payer does not need a second transaction to stop new Rounds. It is checked to outlast the Trading phase, otherwise no Round would ever start. |
+| Optional `MarketCapReader` | The Threshold metric can be `MarketCap`, which needs a supply reader. It is deployed only for that metric, wraps the same price reader, so the Payer is not forced to deploy it by hand. |
+| Base Sepolia factory | A rehearsal on a testnet costs nothing and shows the gates and the gas pricing. The factory for chain 84532 is known to the script so the vetting works there; any other chain except local 31337 is refused. |
+
 ## Vetting before anything is signed
 
 The pool and stake token addresses are checked before use. `preflight` fails with a named error if any of these do not hold:
@@ -131,8 +152,8 @@ The pool and stake token addresses are checked before use. `preflight` fails wit
 - `pool.token0()` or `pool.token1()` is the configured base token (`PoolTokensMismatch`).
 - `pool.fee()` equals the configured `poolFee` (`PoolFeeMismatch`).
 - `factory.getPool(token0, token1, fee)` returns the same pool (`PoolNotRegistered`).
-- The stake token is the pool's quote token (`StakeTokenIsNotThePoolQuote`), which is what lets the Stake cap rule below be checked.
-- Each Stake cap is at or under the rule of thumb, unless `allowStakeCapAboveRule` is true (`StakeCapAboveRule`).
+- An ERC-20 stake token is the pool's quote token (`StakeTokenIsNotThePoolQuote`). This check always runs, including when `allowStakeCapAboveRule` is true, because a Stake cap in some other token would be meaningless against this pool. A stake token of ETH (the zero address) is allowed only together with `allowStakeCapAboveRule`, since the rule cannot price it.
+- Each Stake cap is at or under the rule of thumb (`StakeCapAboveRule`). `allowStakeCapAboveRule` skips only this cap comparison, nothing else in the list.
 
 You can repeat the identity checks by hand:
 
@@ -150,15 +171,20 @@ The pinned-fork test `PayerStakeCapRule` and `StakeCapRule.fork.t.sol` run this 
 
 A Stake cap is the most one Player can stake in a Round. It must stay low enough that moving the pool price during a Window to win costs more than the most it can win. The cap depends on how deep the pool is and how long the Window is. A shorter Window gives a lower cap, because there is less time for the price to move naturally, so an attacker needs less capital to look like a trend.
 
-The rule (`StakeCapRule.maxStakeCap(poolDepth, windowSeconds, lookbackSeconds, poolFee)`):
+### Derivation
 
-- sigma = 1e-4 per square root of a second (assumed price volatility).
-- m = sigma x sqrt(Window) x lookback / 2, the relative price move the attacker must fake.
-- t = depth x m / 2, the quote volume that moves the price by m in a constant-product pool.
-- cost = t x (2 x fee + m / 2), what that move costs in fees and slippage.
-- cap = cost / 4 (a safety divisor of 4).
+A Round is decided by two Readings of `BasePoolReader`: one at the start of the Window and one at its end. Each is a geometric TWAP, the average of the log price over the last `lookback` seconds. The worst case is one address that stakes the cap on one side and also pushes the pool price. With W the Window and L the lookback, both in seconds, the rule (`StakeCapRule.maxStakeCap(poolDepth, windowSeconds, lookbackSeconds, poolFee)`) is:
 
-Here depth is the quote token balance of the pool.
+1. **Natural noise.** The price is assumed to be a driftless random walk with sigma = 1e-4 per square root of a second. The difference between two lookback averages taken W seconds apart then has variance `var = W - L/3` when W is at least L, and `var = W^2 (L - W/3) / L^2` when W is shorter than L, in units of sigma squared seconds.
+2. **Reading shift to beat.** `r = 2 x sigma x sqrt(var)`: the pusher must move the Reading by two standard deviations of that natural difference to flip the outcome reliably.
+3. **Seconds a push counts.** `h = min(W, L)`: a push made after the start Reading can sit inside the end Reading's lookback for at most this long.
+4. **Spot push.** `d = r x L / h`: held for h seconds, a spot push of d moves a Reading averaged over L seconds by `d x h / L = r`. A longer lookback dilutes the same push, so it needs a bigger d.
+5. **Blocks held.** `n = ceil(h / 2)`, at a 2 second block time. Arbitrageurs undo the push every block, so the pusher pays again each block.
+6. **Volume.** `t = depth x d / 2`: the quote token volume that moves a constant-product pool by d. Here depth is the quote token balance of the pool.
+7. **Cost.** `cost = n x t x (2 x fee + d / 2)`: fees in and out plus average slippage, once per held block.
+8. **Cap.** `cap = cost / 4`, a safety divisor of 4.
+
+A shorter Window holds the push for fewer blocks, so the cost and the cap fall: a shorter Window means a lower cap. A longer lookback dilutes a push, so a bigger and dearer push is needed for the same Reading shift, and the cap rises with L.
 
 ### Evidence, dated
 
@@ -172,20 +198,40 @@ All figures are from Base mainnet at block 35,000,000, timestamp 1756789347, 202
 
 | Window | Max Stake cap (raw, 6 decimals) | In USDC |
 | --- | --- | --- |
-| 30 s | 71,519,274 | 71.52 |
-| 10 s | 27,256,397 | 27.26 |
-| 6 s | 17,765,252 | 17.77 |
-| 2 s | 7,449,718 | 7.45 |
+| 30 s | 33,089,948 | 33.09 |
+| 10 s | 13,345,188 | 13.35 |
+| 6 s | 8,273,850 | 8.27 |
+| 2 s | 2,845,839 | 2.85 |
 
-The tests assert the 30 s and 2 s values to within 0.1 percent against the pinned block, and assert that a cap of `max + 1` is rejected.
+The cap depends on the Reading's lookback as well as the Window. A longer lookback dilutes a push, so the cap grows (same pool, fee 500, Window 2 s unless stated):
 
-### Checked against the fork Reading
+| Lookback | Max Stake cap (raw) |
+| --- | --- |
+| 4 s | 735,910 |
+| 10 s | 1,359,421 |
+| 30 s | 2,845,839 |
+| 60 s | 4,647,815 |
+| 60 s, Window 30 s | 61,715,484 |
 
-The fork test `test_theRuleAssumesAPriceMoveTheRealPoolCannotBePushedAnywhereNear` takes the 30 s Window, where the rule assumes a 0.82 percent move costing about 55.9k USDC of volume. It then does a real swap of that volume against the pool at the pinned block. The real price moved 0.0305 percent, far less than the assumed 0.82 percent. So the rule is conservative for this pool: real depth is deeper than the balance the rule uses.
+The cap scales linearly with the pool's quote token balance: at half the depth the 30 s Window allows 16,544,974. The unit tests pin these values to within 0.1 percent and assert that a cap of `max + 1` is rejected. Re-derive the cap if the pool is thinner now than at the dated block.
 
-The script enforces the rule only when the stake token is the pool's quote token; any other stake token is refused (`StakeTokenIsNotThePoolQuote`), because the rule would not be meaningful.
+### What the fork check covers, and what it does not
 
-If the pool is thin or the figures above are stale, re-read the pool balance and re-derive the cap before deploying. `allowStakeCapAboveRule` exists for a Payer who has decided to go over; leave it false by default.
+`StakeCapRule.fork.t.sol` runs against the real pool at the pinned block, through the real `BasePoolReader` TWAP Reading and the pool's own `swap`. For each of the 30 s, 10 s and 2 s Windows it takes the start Reading, buys the base token with exactly the quote volume the rule prices for the push, lets the Window pass at the pushed price, and takes the end Reading. At 30 s the rule prices about 6,097 USDC of volume for a 0.0894 percent spot push held 30 seconds.
+
+It verifies:
+
+- **The real spot response to the rule-priced volume.** The real pool moved 0.0033 percent for that volume, well under the 0.0894 percent the rule assumes, so the real cost of the assumed push is higher than the rule's.
+- **The dilution model, to one tick.** The real Reading move is no more than the spot move times `min(W, L) / L`, plus one tick (0.01 percent, the finest step a TWAP over integer ticks can show).
+- **A lower bound on the cost.** Scaling the real response up to the assumed push, the real pool supports a cap of about 891.7 USDC at 30 s (359.6 at 10 s, 76.7 at 2 s) against the rule's 33.09 (13.35, 2.85): about 27 times as much. The rule is conservative for this pool because the pool is deeper at the current price than the quote balance the rule uses.
+
+It does not verify:
+
+- **Sigma.** The 1e-4 per square root of a second drift is an assumption, not a measurement. It sets how large a push has to be.
+- **Arbitrage reversion and holding cost across blocks.** The test pushes once and lets time pass; it does not simulate arbitrageurs undoing the push block by block, nor the fees the pusher would pay to keep it. The rule charges fees and slippage once per held block, and that charge is modelled, not observed.
+- **The daily volume evidence.** The 60,683.852190 USDC per day lower bound above is context for how busy the pool is. No test uses it.
+
+The script enforces the rule only when the stake token is the pool's quote token. Any other ERC-20 stake token is refused (`StakeTokenIsNotThePoolQuote`) whether or not `allowStakeCapAboveRule` is set, because the rule would not be meaningful. If the pool is thin or the figures above are stale, re-read the pool balance and re-derive the cap before deploying. `allowStakeCapAboveRule` is for a Payer who has decided to go over; leave it false by default.
 
 ## Owner powers and what they can do to Players
 
@@ -199,7 +245,7 @@ What each owner power can do, from [updown-campaign.md](updown-campaign.md):
 | Power | Effect on Players |
 | --- | --- |
 | `fund` | Adds stake token for payouts. Cannot hurt a Player. |
-| `seedRound` (once on UpDown) | Seeds the first Round. Cannot touch a live Round. |
+| `seedRound` (once only, on both UpDownRounds and ThresholdPots; ThresholdPots tracks it with `s_seeded`) | Seeds the first Round. A second call reverts, so the script's call is the only one. Cannot touch a live Round. |
 | Change next-Round seed, Stake cap, Window, Trading phase, end time | Applies only to Rounds that start later. A live Round keeps the settings it started with. |
 | Change the reader | Applies to later Rounds. A malicious or wrong reader could settle later Rounds unfairly, so this is a trust risk and the reason for a Safe with more than one signer. |
 | `stopCampaign` | Schedules a stop at the current Round's cutoff, so no new Rounds start after it. Players in live Rounds can still claim. |
@@ -256,7 +302,7 @@ yarn payer:deploy:smoke
 
 This spawns its own anvil (chain 31337) and uses unlocked well-known test accounts. No password, no live network. It runs:
 
-1. Gate negatives: a raw `--private-key` is refused; a "no" at the gate sends nothing; a skip on a chain-id 8453 loopback is refused.
+1. Gate negatives: a raw `--private-key` is refused; a skip on a chain-id 8453 loopback is refused; a "no" at gate 1 deploys nothing; a "yes" at gate 1 followed by a "no" at gate 2 deploys both contracts but leaves them unfunded and unseeded, with the Payer's stake token balance untouched.
 2. The driver, with `--local-sender <payer> --skip-confirmation`, against mocks of the pool and factory.
 3. Ownership: `owner()` of both contracts equals the Payer and the developer account holds 0 stake token.
 4. Funding: contract balances equal the configured fundings.
@@ -265,18 +311,20 @@ This spawns its own anvil (chain 31337) and uses unlocked well-known test accoun
 
 To look at the real page against that chain, hold it open with `SMOKE_PORT` and `SMOKE_HOLD_SECONDS`, point `NEXT_PUBLIC_ROUNDS_ADDRESS` and `NEXT_PUBLIC_THRESHOLD_ADDRESS` at the printed addresses, and open `/rounds?brand=DEGEN` with the wallet on chain 31337. The page rendered the Payer's contract with its Stake cap and Window, with no console errors.
 
-The Node gate rules run on their own: `yarn payer:deploy:test` (9 tests).
+The Node gate rules run on their own: `yarn payer:deploy:test`.
 
 ## Before the first non-local deploy
 
-| Check | Result when this ticket was built |
-| --- | --- |
-| `forge test` (unit, fuzz, invariant at 128 runs by depth 100, pinned-fork at Base block 35,000,000) | 295 passed, 0 failed. `PredictionMarket.t.sol` (the Speedrun challenge) is excluded. |
-| `slither .` | No unaddressed high or medium. The one high is the OpenZeppelin `mulDiv` false positive. The medium findings in the contracts were already triaged before this ticket. In the new script, only benign cheatcode `unused-return` and the intentional uninitialized `marketCapReader` (zero address when absent) show up. Slither skips `script/` by default, so it was also run on the script directly. |
-| `yarn payer:deploy:test` | 9 passed |
-| `yarn payer:deploy:smoke` | passed on a local anvil |
+Run each of these on the commit you deploy from. Test counts are not recorded here because they go stale; read the pass and fail lines.
 
-Re-run all of these on the commit you deploy from. The pinned-fork tests need `base` RPC access in `packages/foundry/.env`.
+| Check | What to expect |
+| --- | --- |
+| `forge test` in `packages/foundry` (unit, fuzz, invariant) | No failures outside `test/PredictionMarket.t.sol`. That file is the unimplemented Speedrun challenge skeleton and fails on every branch of this repo until the challenge is solved; it is unrelated to this deploy. The pinned-fork tests skip unless `BASE_RPC_URL` is set. |
+| `BASE_RPC_URL=https://mainnet.base.org forge test --match-path test/deploy/StakeCapRule.fork.t.sol -vv` | The fork tests pass at Base block 35,000,000 and log the numbers quoted in "What the fork check covers". The public endpoint needs a cached or archive-capable node for that block. |
+| `slither .` | No unaddressed high or medium. The one high is the OpenZeppelin `mulDiv` false positive. The medium findings in the contracts were already triaged before this ticket. |
+| `slither script/DeployPayerCampaign.s.sol`, run separately | Slither skips `script/` by default. In the script itself only benign cheatcode `unused-return` (`vm.readCallers`, `vm.serialize*`) and the intentional uninitialized `marketCapReader` (zero address when absent) show up. The run also reports the already-triaged `divide-before-multiply` and `incorrect-equality` findings in `UpDownRounds` and `ThresholdPots`, because the script imports them. |
+| `yarn payer:deploy:test` | The Node gate rules pass. |
+| `yarn payer:deploy:smoke` | Passes on a local anvil. |
 
 ## What could not be run during the build
 

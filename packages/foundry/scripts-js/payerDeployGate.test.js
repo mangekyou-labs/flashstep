@@ -5,6 +5,7 @@ import {
   askHuman,
   canSkipConfirmation,
   checksum,
+  isLoopback,
   parsePayerDeployArgs,
   priceGas,
   rpcHost,
@@ -13,24 +14,27 @@ import {
 // Seam: the pure parts of the payer deploy driver. Everything else is covered by the local end-to-end run.
 
 test("signing is by keystore account, ledger, or a local unlocked sender, one at a time", () => {
-  assert.deepEqual(
-    parsePayerDeployArgs(["--config", "c.json", "--network", "base", "--account", "payer"]).signer,
-    { kind: "account", name: "payer" }
-  );
-  assert.deepEqual(
-    parsePayerDeployArgs(["--config", "c.json", "--network", "base", "--ledger"]).signer,
-    { kind: "ledger" }
-  );
+  assert.deepEqual(parsePayerDeployArgs(["--config", "c.json", "--network", "base", "--account", "payer"]).signer, {
+    kind: "account",
+    name: "payer",
+  });
+  assert.deepEqual(parsePayerDeployArgs(["--config", "c.json", "--network", "base", "--ledger"]).signer, {
+    kind: "ledger",
+  });
   assert.deepEqual(
     parsePayerDeployArgs([
-      "--config", "c.json", "--network", "localhost",
-      "--local-sender", "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+      "--config",
+      "c.json",
+      "--network",
+      "localhost",
+      "--local-sender",
+      "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
     ]).signer,
-    { kind: "local", address: "0x70997970C51812dc3A010C7d01b50e0d17dc79C8" }
+    { kind: "local", address: "0x70997970C51812dc3A010C7d01b50e0d17dc79C8" },
   );
   assert.throws(
     () => parsePayerDeployArgs(["--config", "c.json", "--network", "base", "--account", "a", "--ledger"]),
-    /exactly one/
+    /exactly one/,
   );
   assert.throws(() => parsePayerDeployArgs(["--config", "c.json", "--network", "base"]), /exactly one/);
 });
@@ -40,7 +44,7 @@ test("a raw private key is never accepted on the command line", () => {
     assert.throws(
       () => parsePayerDeployArgs(["--config", "c.json", "--network", "base", "--account", "a", flag, "x"]),
       /never accepts/,
-      flag
+      flag,
     );
   }
 });
@@ -62,6 +66,15 @@ test("the confirmation gate can be skipped only for a loopback RPC on chain 3133
   assert.equal(canSkipConfirmation({ chainId: 31337, rpcUrl: "not a url" }), false);
 });
 
+test("only a literal loopback host is loopback, for both the network resolver and the skip rule", () => {
+  assert.equal(isLoopback("http://127.0.0.1:8545"), true);
+  assert.equal(isLoopback("http://localhost:8545"), true);
+  assert.equal(isLoopback("http://[::1]:8545"), true);
+  assert.equal(isLoopback("https://127.0.0.1.evil.example"), false);
+  assert.equal(isLoopback("https://mainnet.base.org"), false);
+  assert.equal(isLoopback("not a url"), false);
+});
+
 test("only the host of an RPC URL is ever shown, because the path can carry an API key", () => {
   assert.equal(rpcHost("https://base-mainnet.g.alchemy.com/v2/SECRETKEY"), "base-mainnet.g.alchemy.com");
   assert.equal(rpcHost("https://user:pass@node.example:8545/path?key=SECRET"), "node.example:8545");
@@ -69,10 +82,7 @@ test("only the host of an RPC URL is ever shown, because the path can carry an A
 });
 
 test("addresses are shown checksummed", () => {
-  assert.equal(
-    checksum("0x33128a8fc17869897dce68ed026d694621f6fdfd"),
-    "0x33128a8fC17869897dcE68Ed026d694621f6FDfD"
-  );
+  assert.equal(checksum("0x33128a8fc17869897dce68ed026d694621f6fdfd"), "0x33128a8fC17869897dcE68Ed026d694621f6FDfD");
   assert.throws(() => checksum("0x1234"));
 });
 
@@ -98,7 +108,7 @@ test("without an ETH price there is no USD figure, and a missing L1 fee counts a
 });
 
 test("only a typed yes opens the gate", async () => {
-  const typed = (text) => Readable.from([text]);
+  const typed = text => Readable.from([text]);
   const out = { write() {} };
   assert.equal(await askHuman("Proceed?", { input: typed("yes\n"), output: out }), true);
   assert.equal(await askHuman("Proceed?", { input: typed("y\n"), output: out }), false);

@@ -229,6 +229,18 @@ contract UpDownRounds is Ownable, ReentrancyGuard, StakeAsset {
         return _viewRound(roundId);
     }
 
+    /// @notice Up chance rounded half upward to whole cents; Down is its complement.
+    function chanceCents(uint256 roundId) external view returns (uint256) {
+        Round memory r = _viewRound(roundId);
+        uint256 total = r.upSold + r.downSold;
+        return (r.upSold * 100 + total / 2) / total;
+    }
+
+    /// @notice Raw stake-token payout for an exact number of winning shares.
+    function payoutFor(uint256 shares) external view returns (uint256) {
+        return Math.mulDiv(shares, i_payout, SHARE_SCALE);
+    }
+
     function positionOf(uint256 roundId, address player) external view returns (Position memory) {
         _viewRound(roundId);
         return s_positions[roundId][player];

@@ -63,6 +63,13 @@ contract BasePoolReader {
     function capture() external returns (Reading memory reading) {
         reading = s_readings[block.number];
         if (reading.timestamp != 0) return reading;
+        reading = preview();
+        s_readings[block.number] = reading;
+        emit ReadingCaptured(block.number, reading.timestamp, reading.price);
+    }
+
+    /// @notice Current TWAP for display only. Settlement still requires pinned captures.
+    function preview() public view returns (Reading memory reading) {
         if (block.timestamp < i_lookback) revert NoValidReading();
         uint32[] memory secondsAgos = new uint32[](2);
         secondsAgos[0] = i_lookback;
@@ -93,8 +100,6 @@ contract BasePoolReader {
         }
         if (price == 0) revert NoValidReading();
         reading = Reading(block.number, block.timestamp, price);
-        s_readings[block.number] = reading;
-        emit ReadingCaptured(block.number, block.timestamp, price);
     }
 
     /// @notice Read a previously captured endpoint; no extrapolation or latest-price fallback.

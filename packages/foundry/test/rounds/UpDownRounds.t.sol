@@ -124,6 +124,16 @@ contract UpDownRoundsTest is RoundFixture {
         market.quote(1, UpDownRounds.Side.Up, 91e18);
     }
 
+    function testRoundPageViewsQuoteChanceAndPayoutOnchain() public {
+        assertEq(market.chanceCents(1), 50);
+        buyAs(alice, UpDownRounds.Side.Up, 20e18);
+        assertEq(market.chanceCents(1), 75);
+        assertEq(market.payoutFor(3e18), 0.03 ether);
+        vm.warp(104);
+        assertEq(reader.preview().price, 1e36);
+        assertEq(reader.preview().timestamp, block.timestamp);
+    }
+
     function testKnownSpeedrunAverageChanceQuote() public view {
         // 10 opening shares each; buying 20 Up moves chance from 1/2 to 3/4.
         // Average chance 5/8, 20 shares at .01 ETH payout => .125 ETH.

@@ -19,7 +19,7 @@ export function parsePayerDeployArgs(argv) {
     const arg = argv[i];
     if (REFUSED_FLAGS.includes(arg)) {
       throw new Error(
-        `payerDeploy never accepts ${arg}. Sign with --account <keystore name> or --ledger so no key appears in a command, a file or shell history.`
+        `payerDeploy never accepts ${arg}. Sign with --account <keystore name> or --ledger so no key appears in a command, a file or shell history.`,
       );
     }
     if (VALUE_FLAGS.includes(arg)) {
@@ -40,7 +40,9 @@ export function parsePayerDeployArgs(argv) {
   }
   const modes = [values["--account"] !== undefined, flags.has("--ledger"), values["--local-sender"] !== undefined];
   if (!help && modes.filter(Boolean).length !== 1) {
-    throw new Error("Choose exactly one signer: --account <name>, --ledger or --local-sender <address> (local chain only)");
+    throw new Error(
+      "Choose exactly one signer: --account <name>, --ledger or --local-sender <address> (local chain only)",
+    );
   }
 
   let signer = null;
@@ -66,14 +68,20 @@ export function rpcHost(rpcUrl) {
   }
 }
 
-/** The human gate may be skipped for a throwaway local chain and nowhere else. */
-export function canSkipConfirmation({ chainId, rpcUrl }) {
-  if (Number(chainId) !== 31337) return false;
+const LOOPBACK_HOSTS = ["127.0.0.1", "localhost", "[::1]"];
+
+/** True only for a URL whose host is literally a loopback address; a look-alike host is not loopback. */
+export function isLoopback(rpcUrl) {
   try {
-    return ["127.0.0.1", "localhost", "[::1]"].includes(new URL(rpcUrl).hostname);
+    return LOOPBACK_HOSTS.includes(new URL(rpcUrl).hostname);
   } catch {
     return false;
   }
+}
+
+/** The human gate may be skipped for a throwaway local chain and nowhere else. */
+export function canSkipConfirmation({ chainId, rpcUrl }) {
+  return Number(chainId) === 31337 && isLoopback(rpcUrl);
 }
 
 export function checksum(address) {
@@ -103,11 +111,11 @@ export function priceGas({ gasUsed, gasPriceWei, l1FeeWei = 0n, operatorFeeWei =
 
 /** Resolves true only if the human types exactly `yes`. End of input, a blank line or anything else is no. */
 export function askHuman(question, { input = process.stdin, output = process.stdout } = {}) {
-  return new Promise((resolve) => {
+  return new Promise(resolve => {
     const rl = createInterface({ input, output, terminal: false });
     let answered = false;
     output.write(`${question} Type "yes" to continue: `);
-    rl.once("line", (line) => {
+    rl.once("line", line => {
       answered = true;
       rl.close();
       resolve(line.trim() === "yes");

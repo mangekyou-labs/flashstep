@@ -25,7 +25,11 @@ contract PayerVettingTest is PayerDeployFixture {
     function test_aPoolWithNoCodeIsRefused() public {
         pool = MockV3Pool(makeAddr("not a pool"));
         _prepare();
-        vm.expectRevert(abi.encodeWithSelector(DeployPayerCampaign.NotAContract.selector, "pool", address(pool)));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                DeployPayerCampaign.NotAContract.selector, DeployPayerCampaign.Vetted.Pool, address(pool)
+            )
+        );
         script.preflight();
     }
 
@@ -33,7 +37,9 @@ contract PayerVettingTest is PayerDeployFixture {
         configuredStakeToken = makeAddr("not a token");
         _prepare();
         vm.expectRevert(
-            abi.encodeWithSelector(DeployPayerCampaign.NotAContract.selector, "stakeToken", configuredStakeToken)
+            abi.encodeWithSelector(
+                DeployPayerCampaign.NotAContract.selector, DeployPayerCampaign.Vetted.StakeToken, configuredStakeToken
+            )
         );
         script.preflight();
     }

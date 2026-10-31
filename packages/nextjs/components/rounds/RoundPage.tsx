@@ -7,10 +7,11 @@ import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Address, BaseError, erc20Abi, formatUnits, parseUnits, zeroAddress } from "viem";
 import { useAccount, usePublicClient, useSwitchChain, useWriteContract } from "wagmi";
+import { BrandGate } from "~~/components/rounds/BrandGate";
 import { NoExplorerNote, ProofPanels, SettleTxCell } from "~~/components/rounds/ProofPanels";
 import { ReadingChart, readingLabel } from "~~/components/rounds/ReadingChart";
 import { ThresholdRoundPage } from "~~/components/rounds/ThresholdRoundPage";
-import { Payer, payerFor } from "~~/config/payers";
+import { type Payer } from "~~/config/payers";
 import { roundsAbi } from "~~/utils/rounds/abi";
 import { useSettleTxs } from "~~/utils/rounds/proof";
 import { phaseNames, resultNames, useRound } from "~~/utils/rounds/useRound";
@@ -36,16 +37,21 @@ function message(error: unknown): string {
 
 export function RoundPage() {
   const params = useSearchParams();
-  return params.get("market") === "threshold" ? (
-    <ThresholdRoundPage key={params.get("brand") ?? "DEGEN"} />
-  ) : (
-    <UpDownRoundPage />
+  return (
+    <BrandGate>
+      {payer =>
+        params.get("market") === "threshold" ? (
+          <ThresholdRoundPage key={payer.ticker} payer={payer} />
+        ) : (
+          <UpDownRoundPage key={payer.ticker} payer={payer} />
+        )
+      }
+    </BrandGate>
   );
 }
 
-function UpDownRoundPage() {
+function UpDownRoundPage({ payer }: { payer: Payer }) {
   const params = useSearchParams();
-  const payer = payerFor(params.get("brand"));
   const [selected, setSelected] = useState<bigint | null>(() => {
     const id = params.get("round");
     return id && /^[1-9]\d*$/.test(id) ? BigInt(id) : null;

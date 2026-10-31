@@ -11,9 +11,11 @@ import { execFileSync, spawn } from "node:child_process";
 import { createConnection } from "node:net";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
+import { committedBrandBook } from "./committed-brand.mjs";
 
 const root = new URL("../", import.meta.url);
 const rootPath = fileURLToPath(root);
+const brand = committedBrandBook(root);
 const require = createRequire(new URL("packages/nextjs/package.json", root));
 const { createPublicClient, createWalletClient, http, formatEther, parseAbi, parseEther } = require("viem");
 const { foundry } = require("viem/chains");
@@ -124,12 +126,27 @@ try {
   const potVolume = potLogs.reduce((sum, l) => sum + l.args.amount, 0n);
   const opening = (await logs(pots, potsAbi)).find(l => l.eventName === "RoundSeeded").args.openingStake;
 
-  start("yarn", ["next", "dev", "--webpack", "-p", "3010"], {
+  const appEnv = {
     NEXT_TELEMETRY_DISABLED: "1",
     NEXT_PUBLIC_ROUNDS_ADDRESS: updown,
     NEXT_PUBLIC_THRESHOLD_ADDRESS: pots,
     NEXT_PUBLIC_DEGEN_CAMPAIGN_COST: COST,
-  }, `${rootPath}packages/nextjs`);
+  };
+  const book = JSON.parse(brand.text);
+  for (const ticker of ["DEGEN", "BASE"]) {
+    const entry = book[ticker];
+    entry.chainId = 31337;
+    entry.fromBlock = "0";
+    entry.quoteTicker = "ETH";
+    entry.address = ticker === "BASE" ? process.env.NEXT_PUBLIC_BASE_ROUNDS_ADDRESS || updown : updown;
+    entry.thresholdAddress =
+      ticker === "BASE" ? process.env.NEXT_PUBLIC_BASE_THRESHOLD_ADDRESS || pots : pots;
+    const cost = appEnv[`NEXT_PUBLIC_${ticker}_CAMPAIGN_COST`] ?? process.env[`NEXT_PUBLIC_${ticker}_CAMPAIGN_COST`];
+    if (cost) entry.campaignCost = cost;
+    else delete entry.campaignCost;
+  }
+  brand.write(book);
+  start("yarn", ["next", "dev", "--webpack", "-p", "3010"], appEnv, `${rootPath}packages/nextjs`);
   await until("Next dev server", async () => (await fetch(`${APP}/rounds/stats`)).ok, 180_000);
   pw("open", `${APP}/rounds/stats?brand=DEGEN`);
   pw("console", "error"); // start from a clean console listing
@@ -191,6 +208,11 @@ try {
   pass("no browser console errors");
   console.log(`\n${passed} checks passed`);
 } finally {
+  try {
+    brand.restore();
+  } catch {
+    // restore the committed brand book even when setup failed before a write
+  }
   try {
     pw("close");
   } catch {}

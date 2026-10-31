@@ -1,6 +1,6 @@
 # Threshold Rounds on the Round page
 
-Open `/rounds?brand=DEGEN&market=threshold`. Up/down and threshold Rounds have separate contract addresses and Round-number histories. The links switch between them. `NEXT_PUBLIC_THRESHOLD_ADDRESS` configures DEGEN; `NEXT_PUBLIC_BASE_THRESHOLD_ADDRESS` can override BASE. Addresses are build-time config, never supplied by a URL. The existing payer branding and configured chain apply.
+Open `/rounds?brand=DEGEN&market=threshold`. Up/down and threshold Rounds have separate contract addresses and Round-number histories. The links switch between them. `thresholdAddress` in `brand.json` configures that brand, not `NEXT_PUBLIC_THRESHOLD_ADDRESS` / `NEXT_PUBLIC_BASE_THRESHOLD_ADDRESS`. Addresses never come from the URL. The existing payer branding and configured chain apply.
 
 The threshold contract supplies the question's metric and threshold, phase, positions, Pot, payout previews and claimable amounts. `quoteStake(roundId, player, side, amount)` returns the Player's **total** payout on that side if it wins, including the entered stake and previously held same-side stakes. Zero amount previews the held position. Opening stakes are included in the Pot and side totals. Payouts use the same integer rounding as `claimable`; no payout calculation runs in TypeScript. Opposite-side holdings do not count as winning stakes. A peer joining your side can lower the payout, so every preview is labelled as the current split.
 
@@ -18,7 +18,7 @@ Start a disposable Anvil on port 8545 and compile contracts with `forge build --
 node scripts/threshold-local.mjs setup yes
 ```
 
-Set the printed `NEXT_PUBLIC_THRESHOLD_ADDRESS` in the frontend environment and restart the frontend. Open `/rounds?brand=DEGEN&market=threshold`, connect a Player wallet, and fund it:
+Put the printed address into `brand.json` as `thresholdAddress` and restart the frontend. Open `/rounds?brand=DEGEN&market=threshold`, connect a Player wallet, and fund it:
 
 ```sh
 node scripts/threshold-local.mjs fund-player <wallet-address>

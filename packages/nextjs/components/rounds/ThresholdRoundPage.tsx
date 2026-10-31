@@ -9,15 +9,14 @@ import { BaseError, erc20Abi, formatUnits, parseUnits, zeroAddress } from "viem"
 import { useAccount, usePublicClient, useSwitchChain, useWriteContract } from "wagmi";
 import { NoExplorerNote, ProofPanels, SettleTxCell } from "~~/components/rounds/ProofPanels";
 import { readingLabel } from "~~/components/rounds/ReadingChart";
-import { payerFor } from "~~/config/payers";
+import { type Payer } from "~~/config/payers";
 import { useSettleTxs } from "~~/utils/rounds/proof";
 import { thresholdAbi, thresholdResults } from "~~/utils/rounds/thresholdAbi";
 import { phaseNames } from "~~/utils/rounds/useRound";
 import { useThresholdRound } from "~~/utils/rounds/useThresholdRound";
 
-export function ThresholdRoundPage() {
+export function ThresholdRoundPage({ payer }: { payer: Payer }) {
   const params = useSearchParams();
-  const payer = payerFor(params.get("brand"));
   const [selected, setSelected] = useState<bigint | null>(() => {
     const id = params.get("round");
     return id && /^[1-9]\d*$/.test(id) ? BigInt(id) : null;

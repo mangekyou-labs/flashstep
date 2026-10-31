@@ -17,9 +17,7 @@
 ```
 
 ## Configuration
-See `packages/nextjs/.env.example`.
-- `NEXT_PUBLIC_EXPLORER_URL`: explorer base URL for every payer (for local chains, which have no known explorer).
-- `NEXT_PUBLIC_DEGEN_EXPLORER_URL`, `NEXT_PUBLIC_BASE_EXPLORER_URL`: per-payer explorer base URL (`explorerUrl` in `config/payers.ts`). Order: per-payer, global override, built-in Base (8453) and Base Sepolia (84532).
+- `explorerUrl` in `brand.json` is the payer's block explorer base URL (for local chains, which have no known explorer). Not `NEXT_PUBLIC_DEGEN_EXPLORER_URL` in `config/payers.ts`.
 - `ROUNDS_FRAME_ANCESTORS`: allowed embedders (server side).
 
 ## Smoke run

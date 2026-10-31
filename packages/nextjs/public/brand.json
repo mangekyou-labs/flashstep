@@ -1,0 +1,30 @@
+{
+  "DEGEN": {
+    "name": "Degen",
+    "ticker": "DEGEN",
+    "logo": "/rounds/degen.svg",
+    "accent": "#6d28d9",
+    "up": "#167349",
+    "down": "#b6333b",
+    "address": "0x0000000000000000000000000000000000000000",
+    "thresholdAddress": "0x0000000000000000000000000000000000000000",
+    "chainId": 31337,
+    "quoteTicker": "ETH",
+    "explorerUrl": "",
+    "fromBlock": "0"
+  },
+  "BASE": {
+    "name": "Base",
+    "ticker": "BASE",
+    "logo": "/rounds/base.svg",
+    "accent": "#174bd6",
+    "up": "#116a42",
+    "down": "#ae2935",
+    "address": "0x0000000000000000000000000000000000000000",
+    "thresholdAddress": "0x0000000000000000000000000000000000000000",
+    "chainId": 31337,
+    "quoteTicker": "ETH",
+    "explorerUrl": "",
+    "fromBlock": "0"
+  }
+}

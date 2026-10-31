@@ -6,6 +6,7 @@
     "build": "yarn lint && next build",
     "check-types": "tsc --noEmit --incremental",
     "dev": "next dev",
+    "export": "NEXT_PUBLIC_HANDOVER_BUILD=true next build",
     "format": "prettier --write . '!(node_modules|.next)/**/*'",
     "ipfs": "NEXT_PUBLIC_IPFS_BUILD=true yarn build && yarn bgipfs upload config init -u https://upload.bgipfs.com && CID=$(yarn bgipfs upload out | grep -o 'CID: [^ ]*' | cut -d' ' -f2) && [ ! -z \"$CID\" ] && echo '🚀 Upload complete! Your site is now available at: https://community.bgipfs.com/ipfs/'$CID || echo '❌ Upload failed'",
     "lint": "yarn eslint .",

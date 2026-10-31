@@ -11,9 +11,11 @@ import { execFileSync, spawn } from "node:child_process";
 import { createConnection } from "node:net";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
+import { committedBrandBook } from "./committed-brand.mjs";
 
 const root = new URL("../", import.meta.url);
 const rootPath = fileURLToPath(root);
+const brand = committedBrandBook(root);
 const require = createRequire(new URL("packages/nextjs/package.json", root));
 const { createPublicClient, http, formatEther, parseAbi, encodeFunctionData, parseEther } = require("viem");
 const { foundry } = require("viem/chains");
@@ -95,7 +97,33 @@ const tableRows = () =>
 const bodyText = () => evaluate(`() => document.body.innerText`);
 const testId = id => evaluate(`() => document.querySelector('[data-testid="${id}"]')?.innerText ?? null`);
 
+function writeBrand(env) {
+  const book = JSON.parse(brand.text);
+  for (const ticker of ["DEGEN", "BASE"]) {
+    const entry = book[ticker];
+    entry.chainId = 31337;
+    entry.fromBlock = "0";
+    entry.quoteTicker = "ETH";
+    if (ticker === "DEGEN") {
+      entry.address = env.NEXT_PUBLIC_ROUNDS_ADDRESS;
+      entry.thresholdAddress = env.NEXT_PUBLIC_THRESHOLD_ADDRESS;
+    } else {
+      entry.address = env.NEXT_PUBLIC_BASE_ROUNDS_ADDRESS || env.NEXT_PUBLIC_ROUNDS_ADDRESS;
+      entry.thresholdAddress = env.NEXT_PUBLIC_BASE_THRESHOLD_ADDRESS || env.NEXT_PUBLIC_THRESHOLD_ADDRESS;
+    }
+    const specific = env[`NEXT_PUBLIC_${ticker}_EXPLORER_URL`];
+    if (specific !== undefined) entry.explorerUrl = specific;
+    else if (env.NEXT_PUBLIC_EXPLORER_URL !== undefined) entry.explorerUrl = env.NEXT_PUBLIC_EXPLORER_URL;
+    else entry.explorerUrl = EXPLORER;
+    const cost = env[`NEXT_PUBLIC_${ticker}_CAMPAIGN_COST`];
+    if (cost) entry.campaignCost = cost;
+    else delete entry.campaignCost;
+  }
+  brand.write(book);
+}
+
 async function startApp(env) {
+  writeBrand(env);
   const app = start("yarn", ["next", "dev", "--webpack", "-p", "3010"], { NEXT_TELEMETRY_DISABLED: "1", ...env }, `${rootPath}packages/nextjs`);
   await until("Next dev server", async () => (await fetch(`${APP}/rounds`)).ok, 180_000);
   return app;
@@ -292,6 +320,11 @@ try {
 
   console.log(`\n${passed} checks passed`);
 } finally {
+  try {
+    brand.restore();
+  } catch {
+    // restore the committed brand book even when setup failed before a write
+  }
   try {
     pw("close");
   } catch {

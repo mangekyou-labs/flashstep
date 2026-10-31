@@ -1,8 +1,8 @@
 # Branded Round page
 
-The Player page is `/rounds?brand=DEGEN`. `/rounds?brand=BASE` uses the second example brand. Edit `packages/nextjs/config/payers.ts` to change a payer's name, ticker, logo, accent and outcome colours, contract address and chain. Query parameters select a known config entry; they cannot replace a contract address. Unknown brands use DEGEN. The two included logos are local sample marks, replaceable via config.
+The Player page is `/rounds?brand=DEGEN`. `/rounds?brand=BASE` uses the second example brand. Addresses, name, ticker, logo, accent and outcome colours come from `brand.json`, not from editing `config/payers.ts` or `NEXT_PUBLIC_ROUNDS_ADDRESS` in `.env.local`. Query parameters select a known book key; they cannot replace a contract address. Unknown brands use DEGEN. The two included logos are local sample marks, replaceable via config.
 
-The current page uses the repository's configured local chain (31337). To target another network, also add that network to `scaffold.config.ts`. The contract's stake-token address, symbol and decimals determine payment units. ETH buys send the exact quote; ERC-20 buys request allowance before buying. Sell minimum proceeds equal the displayed quote. A changed quote requires another review; a new Round cannot receive an order intended for the old one.
+The current page uses the repository's configured local chain (31337). To target another network, set `chainId` in `brand.json`. Base (8453) and Base Sepolia (84532) are already on the static page's client list. The contract's stake-token address, symbol and decimals determine payment units. ETH buys send the exact quote; ERC-20 buys request allowance before buying. Sell minimum proceeds equal the displayed quote. A changed quote requires another review; a new Round cannot receive an order intended for the old one.
 
 ## Local fixture
 
@@ -15,7 +15,7 @@ forge build --root packages/foundry
 node scripts/rounds-local.mjs setup
 ```
 
-Copy the printed `NEXT_PUBLIC_ROUNDS_ADDRESS` into `packages/nextjs/.env.local`, then start the frontend with `yarn start`. Fixture state is saved to `output/rounds-local.json`. Open `http://localhost:3000/rounds?brand=DEGEN`, connect a Player wallet, and fund that address:
+Put the printed address into `brand.json` as `address` (not `NEXT_PUBLIC_ROUNDS_ADDRESS` in `.env.local`, and not `config/payers.ts`), then start the frontend with `yarn start`. Fixture state is saved to `output/rounds-local.json`. Open `http://localhost:3000/rounds?brand=DEGEN`, connect a Player wallet, and fund that address:
 
 ```sh
 node scripts/rounds-local.mjs fund-player <wallet-address>

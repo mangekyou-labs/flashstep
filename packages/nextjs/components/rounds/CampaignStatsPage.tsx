@@ -2,9 +2,9 @@
 
 import { CSSProperties } from "react";
 import Image from "next/image";
-import { useSearchParams } from "next/navigation";
 import { formatUnits } from "viem";
-import { payerFor } from "~~/config/payers";
+import { BrandGate } from "~~/components/rounds/BrandGate";
+import { type Payer } from "~~/config/payers";
 import { RoundStats } from "~~/utils/rounds/stats";
 import { useCampaignStats } from "~~/utils/rounds/useCampaignStats";
 
@@ -16,7 +16,10 @@ const marketLabel: Record<RoundStats["market"], string> = { updown: "Up/down", t
 
 /** The payer's view of its Campaign: each Round's volume, players and result, and the total against cost. */
 export function CampaignStatsPage() {
-  const payer = payerFor(useSearchParams().get("brand"));
+  return <BrandGate>{payer => <CampaignStatsBody key={payer.ticker} payer={payer} />}</BrandGate>;
+}
+
+function CampaignStatsBody({ payer }: { payer: Payer }) {
   const stats = useCampaignStats(payer);
   const data = stats.data;
   const decimals = data?.token.decimals ?? 18;

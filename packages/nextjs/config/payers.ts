@@ -1,4 +1,4 @@
-import { type Payer } from "../utils/rounds/brandConfig";
+import { type Payer } from "~~/utils/rounds/brandConfig";
 
 export type { Payer };
 export type Market = "updown" | "threshold";

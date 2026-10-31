@@ -271,7 +271,7 @@ forge verify-contract <address> <path>:<Contract> --chain 8453 --verifier sourci
 
 The driver fills in the address, contract path and constructor arguments for `BasePoolReader`, `UpDownRounds`, `ThresholdPots` (and `MarketCapReader` when deployed). `yarn verify` may ask for an explorer key in `.env`; keep that out of version control.
 
-`deployedContracts.ts` is not regenerated and not hand-edited. Put the printed addresses into the served `brand.json` fields `address` and `thresholdAddress`. See `docs/implementation/handover.md`.
+`deployedContracts.ts` is not regenerated and not hand-edited. Put the printed addresses into the served `brand.json` fields `address` and `thresholdAddress`, and set `chainId`, `explorerUrl`, and `campaignCost`. See `docs/implementation/handover.md`.
 
 ## After deploy: settle bot and page
 
@@ -288,6 +288,9 @@ Page (`brand.json`, see `docs/implementation/handover.md`):
 ```
 address=<UpDownRounds>
 thresholdAddress=<ThresholdPots>
+chainId=<8453 on Base, 84532 on Base Sepolia>
+explorerUrl=<block explorer; empty means no settle link>
+campaignCost=<set to show Campaign cost and net>
 ```
 
 Then open `/rounds?brand=DEGEN`. A second brand is another key in the same file.
@@ -309,7 +312,7 @@ This spawns its own anvil (chain 31337) and uses unlocked well-known test accoun
 5. The settle bot with its own key: the UpDown Round settles (Tie) and the Threshold Round settles (Yes), with no reverts. The bot holds no role.
 6. The page's views: `currentRound` of at least 2, `phase`, `chanceCents`, `PAYOUT` and `i_stakeToken`.
 
-To look at the real page against that chain, hold it open with `SMOKE_PORT` and `SMOKE_HOLD_SECONDS`, put the printed addresses into `brand.json` (`address` and `thresholdAddress`, see `docs/implementation/handover.md`), and open `/rounds?brand=DEGEN` with the wallet on chain 31337. The page rendered the Payer's contract with its Stake cap and Window, with no console errors.
+To look at the real page against that chain, hold it open with `SMOKE_PORT` and `SMOKE_HOLD_SECONDS`, put the printed addresses into `brand.json` (`address`, `thresholdAddress`, `chainId`, `explorerUrl`, and `campaignCost`, see `docs/implementation/handover.md`), and open `/rounds?brand=DEGEN` with the wallet on chain 31337. The page rendered the Payer's contract with its Stake cap and Window, with no console errors.
 
 The Node gate rules run on their own: `yarn payer:deploy:test`.
 

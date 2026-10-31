@@ -8,6 +8,12 @@ Deploy with `docs/implementation/payer-deploy.md`.
 
 After deploy, put the printed addresses into the served `brand.json` fields `address` (up/down) and `thresholdAddress` (threshold pots). Not into env vars.
 
+In that same brand.json entry, set:
+
+- `chainId`: `8453` on Base, `84532` on Base Sepolia. The shipped sample stays `31337` for local Anvil.
+- `explorerUrl`: the page links each Round's settle transaction. Empty means no link.
+- `campaignCost`: the payer view shows Campaign cost and net only when this is set.
+
 ## Settle bot
 
 Run the settle bot as described in `docs/implementation/settle-bot.md`.

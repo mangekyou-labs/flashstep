@@ -8,15 +8,14 @@
 // and balances. It fails on any browser console error.
 import assert from "node:assert/strict";
 import { execFileSync, spawn } from "node:child_process";
-import { readFileSync, writeFileSync } from "node:fs";
 import { createConnection } from "node:net";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
+import { committedBrandBook } from "./committed-brand.mjs";
 
 const root = new URL("../", import.meta.url);
 const rootPath = fileURLToPath(root);
-const brandPath = fileURLToPath(new URL("packages/nextjs/public/brand.json", root));
-const committedBrand = readFileSync(brandPath, "utf8");
+const brand = committedBrandBook(root);
 const require = createRequire(new URL("packages/nextjs/package.json", root));
 const { createPublicClient, createWalletClient, http, formatEther, parseAbi, parseEther } = require("viem");
 const { foundry } = require("viem/chains");
@@ -133,7 +132,7 @@ try {
     NEXT_PUBLIC_THRESHOLD_ADDRESS: pots,
     NEXT_PUBLIC_DEGEN_CAMPAIGN_COST: COST,
   };
-  const book = JSON.parse(committedBrand);
+  const book = JSON.parse(brand.text);
   for (const ticker of ["DEGEN", "BASE"]) {
     const entry = book[ticker];
     entry.chainId = 31337;
@@ -146,7 +145,7 @@ try {
     if (cost) entry.campaignCost = cost;
     else delete entry.campaignCost;
   }
-  writeFileSync(brandPath, `${JSON.stringify(book, null, 2)}\n`);
+  brand.write(book);
   start("yarn", ["next", "dev", "--webpack", "-p", "3010"], appEnv, `${rootPath}packages/nextjs`);
   await until("Next dev server", async () => (await fetch(`${APP}/rounds/stats`)).ok, 180_000);
   pw("open", `${APP}/rounds/stats?brand=DEGEN`);
@@ -210,7 +209,7 @@ try {
   console.log(`\n${passed} checks passed`);
 } finally {
   try {
-    writeFileSync(brandPath, committedBrand);
+    brand.restore();
   } catch {
     // restore the committed brand book even when setup failed before a write
   }

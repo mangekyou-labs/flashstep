@@ -1,8 +1,6 @@
 import type { NextConfig } from "next";
 
-const isExport =
-  process.env.NEXT_PUBLIC_IPFS_BUILD === "true" ||
-  process.env.NEXT_PUBLIC_HANDOVER_BUILD === "true";
+const isExport = process.env.NEXT_PUBLIC_IPFS_BUILD === "true" || process.env.NEXT_PUBLIC_HANDOVER_BUILD === "true";
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,

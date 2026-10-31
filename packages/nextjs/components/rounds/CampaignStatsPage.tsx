@@ -16,11 +16,7 @@ const marketLabel: Record<RoundStats["market"], string> = { updown: "Up/down", t
 
 /** The payer's view of its Campaign: each Round's volume, players and result, and the total against cost. */
 export function CampaignStatsPage() {
-  return (
-    <BrandGate>
-      {payer => <CampaignStatsBody key={payer.ticker} payer={payer} />}
-    </BrandGate>
-  );
+  return <BrandGate>{payer => <CampaignStatsBody key={payer.ticker} payer={payer} />}</BrandGate>;
 }
 
 function CampaignStatsBody({ payer }: { payer: Payer }) {

@@ -4,7 +4,12 @@ import { parseBrandBook, selectPayer } from "./brandConfig.ts";
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-const degen = {
+type RawBook = Exclude<Parameters<typeof parseBrandBook>[0], string>;
+type RawEntry = RawBook[string];
+
+const invalid = (entry: unknown): RawEntry => entry as RawEntry;
+
+const degen: RawEntry = {
   name: "Degen",
   ticker: "DEGEN",
   logo: "/rounds/degen.svg",
@@ -19,7 +24,7 @@ const degen = {
   fromBlock: "0",
 };
 
-const pilot = {
+const pilot: RawEntry = {
   name: "Pilot",
   ticker: "PILOT",
   logo: "/rounds/pilot.svg",
@@ -35,140 +40,54 @@ const pilot = {
 };
 
 test("parseBrandBook returns a payer from a valid book", () => {
-  const book = parseBrandBook({
-    DEGEN: {
-      name: "Degen",
-      ticker: "DEGEN",
-      logo: "/rounds/degen.svg",
-      accent: "#6d28d9",
-      up: "#167349",
-      down: "#b6333b",
-      address: "0x1111111111111111111111111111111111111111",
-      thresholdAddress: "0x2222222222222222222222222222222222222222",
-      chainId: 31337,
-      quoteTicker: "ETH",
-      explorerUrl: "",
-      fromBlock: "0",
-    },
-  });
-  const degen = book.DEGEN;
-  assert.equal(degen.name, "Degen");
-  assert.equal(degen.ticker, "DEGEN");
-  assert.equal(degen.logo, "/rounds/degen.svg");
-  assert.equal(degen.accent, "#6d28d9");
-  assert.equal(degen.up, "#167349");
-  assert.equal(degen.down, "#b6333b");
-  assert.equal(degen.address, "0x1111111111111111111111111111111111111111");
-  assert.equal(degen.thresholdAddress, "0x2222222222222222222222222222222222222222");
-  assert.equal(degen.chainId, 31337);
-  assert.equal(degen.quoteTicker, "ETH");
-  assert.equal(degen.explorerUrl, "");
-  assert.equal(degen.fromBlock, 0n);
+  const book = parseBrandBook({ DEGEN: degen });
+  const payer = book.DEGEN;
+  assert.equal(payer.name, "Degen");
+  assert.equal(payer.ticker, "DEGEN");
+  assert.equal(payer.logo, "/rounds/degen.svg");
+  assert.equal(payer.accent, "#6d28d9");
+  assert.equal(payer.up, "#167349");
+  assert.equal(payer.down, "#b6333b");
+  assert.equal(payer.address, "0x1111111111111111111111111111111111111111");
+  assert.equal(payer.thresholdAddress, "0x2222222222222222222222222222222222222222");
+  assert.equal(payer.chainId, 31337);
+  assert.equal(payer.quoteTicker, "ETH");
+  assert.equal(payer.explorerUrl, "");
+  assert.equal(payer.fromBlock, 0n);
 });
 
 test("parseBrandBook refuses a payer missing a required field", () => {
-  assert.throws(
-    () =>
-      parseBrandBook({
-        DEGEN: {
-          ticker: "DEGEN",
-          logo: "/rounds/degen.svg",
-          accent: "#6d28d9",
-          up: "#167349",
-          down: "#b6333b",
-          address: "0x1111111111111111111111111111111111111111",
-          thresholdAddress: "0x2222222222222222222222222222222222222222",
-          chainId: 31337,
-          quoteTicker: "ETH",
-          explorerUrl: "",
-          fromBlock: "0",
-        },
-      }),
-    /name/,
-  );
+  const { name, ...missingName } = degen;
+  assert.equal(name, "Degen");
+  assert.throws(() => parseBrandBook({ DEGEN: invalid(missingName) }), /name/);
 });
 
 test("parseBrandBook refuses a bad address", () => {
-  const payer = {
-    name: "Degen",
-    ticker: "DEGEN",
-    logo: "/rounds/degen.svg",
-    accent: "#6d28d9",
-    up: "#167349",
-    down: "#b6333b",
-    address: "0x1111111111111111111111111111111111111111",
-    thresholdAddress: "0x2222222222222222222222222222222222222222",
-    chainId: 31337,
-    quoteTicker: "ETH",
-    explorerUrl: "",
-    fromBlock: "0",
-  };
-  assert.throws(() => parseBrandBook({ DEGEN: { ...payer, address: "0x123" } }), /address/);
+  assert.throws(() => parseBrandBook({ DEGEN: invalid({ ...degen, address: "0x123" }) }), /address/);
   assert.throws(
-    () => parseBrandBook({ DEGEN: { ...payer, thresholdAddress: "not-an-address" } }),
+    () => parseBrandBook({ DEGEN: invalid({ ...degen, thresholdAddress: "not-an-address" }) }),
     /thresholdAddress/,
   );
 });
 
 test("parseBrandBook refuses a bad chain id", () => {
-  const payer = {
-    name: "Degen",
-    ticker: "DEGEN",
-    logo: "/rounds/degen.svg",
-    accent: "#6d28d9",
-    up: "#167349",
-    down: "#b6333b",
-    address: "0x1111111111111111111111111111111111111111",
-    thresholdAddress: "0x2222222222222222222222222222222222222222",
-    chainId: 31337,
-    quoteTicker: "ETH",
-    explorerUrl: "",
-    fromBlock: "0",
-  };
-  assert.throws(() => parseBrandBook({ DEGEN: { ...payer, chainId: "31337" } }), /chain/);
-  assert.throws(() => parseBrandBook({ DEGEN: { ...payer, chainId: 1.5 } }), /chain/);
-  assert.throws(() => parseBrandBook({ DEGEN: { ...payer, chainId: -1 } }), /chain/);
+  assert.throws(() => parseBrandBook({ DEGEN: invalid({ ...degen, chainId: "31337" }) }), /chain/);
+  assert.throws(() => parseBrandBook({ DEGEN: invalid({ ...degen, chainId: 1.5 }) }), /chain/);
+  assert.throws(() => parseBrandBook({ DEGEN: invalid({ ...degen, chainId: -1 }) }), /chain/);
 });
 
 test("parseBrandBook refuses a bad color", () => {
-  const payer = {
-    name: "Degen",
-    ticker: "DEGEN",
-    logo: "/rounds/degen.svg",
-    accent: "#6d28d9",
-    up: "#167349",
-    down: "#b6333b",
-    address: "0x1111111111111111111111111111111111111111",
-    thresholdAddress: "0x2222222222222222222222222222222222222222",
-    chainId: 31337,
-    quoteTicker: "ETH",
-    explorerUrl: "",
-    fromBlock: "0",
-  };
-  assert.throws(() => parseBrandBook({ DEGEN: { ...payer, accent: "purple" } }), /accent/);
-  assert.throws(() => parseBrandBook({ DEGEN: { ...payer, up: "#fff" } }), /up/);
-  assert.throws(() => parseBrandBook({ DEGEN: { ...payer, down: "#b6333bff" } }), /down/);
+  assert.throws(() => parseBrandBook({ DEGEN: invalid({ ...degen, accent: "purple" }) }), /accent/);
+  assert.throws(() => parseBrandBook({ DEGEN: invalid({ ...degen, up: "#fff" }) }), /up/);
+  assert.throws(() => parseBrandBook({ DEGEN: invalid({ ...degen, down: "#b6333bff" }) }), /down/);
 });
 
 test("fromBlock is a decimal string", () => {
-  const payer = {
-    name: "Degen",
-    ticker: "DEGEN",
-    logo: "/rounds/degen.svg",
-    accent: "#6d28d9",
-    up: "#167349",
-    down: "#b6333b",
-    address: "0x1111111111111111111111111111111111111111",
-    thresholdAddress: "0x2222222222222222222222222222222222222222",
-    chainId: 31337,
-    quoteTicker: "ETH",
-    explorerUrl: "",
-    fromBlock: "9007199254740993",
-  };
+  const payer = { ...degen, fromBlock: "9007199254740993" };
   assert.equal(parseBrandBook({ DEGEN: payer }).DEGEN.fromBlock, 9007199254740993n);
-  assert.throws(() => parseBrandBook({ DEGEN: { ...payer, fromBlock: 12 } }), /fromBlock/);
-  assert.throws(() => parseBrandBook({ DEGEN: { ...payer, fromBlock: "12.5" } }), /fromBlock/);
-  assert.throws(() => parseBrandBook({ DEGEN: { ...payer, fromBlock: "0x10" } }), /fromBlock/);
+  assert.throws(() => parseBrandBook({ DEGEN: invalid({ ...payer, fromBlock: 12 }) }), /fromBlock/);
+  assert.throws(() => parseBrandBook({ DEGEN: invalid({ ...payer, fromBlock: "12.5" }) }), /fromBlock/);
+  assert.throws(() => parseBrandBook({ DEGEN: invalid({ ...payer, fromBlock: "0x10" }) }), /fromBlock/);
 });
 
 test("a second brand entry changes name, ticker, colors, addresses, and chain", () => {

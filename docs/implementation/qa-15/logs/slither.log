@@ -1,0 +1,559 @@
+Downloading pydantic-core (2.0MiB)
+Downloading web3 (1.3MiB)
+Downloading cytoolz (1.1MiB)
+Downloading pycryptodome (2.4MiB)
+ Downloaded cytoolz
+ Downloaded web3
+ Downloaded pydantic-core
+ Downloaded pycryptodome
+Installed 47 packages in 48ms
+'forge clean' running (wd: /private/tmp/flashstep-qa-15/packages/foundry)
+'forge config --json' running
+'forge build --build-info --deny never --skip ./test/** ./script/** --force' running (wd: /private/tmp/flashstep-qa-15/packages/foundry)
+INFO:Detectors:
+Detector: incorrect-exp
+Math.mulDiv(uint256,uint256,uint256) (lib/openzeppelin-contracts/contracts/utils/math/Math.sol#206-277) has bitwise-xor operator ^ instead of the exponentiation operator **: 
+	 - inverse = (3 * denominator) ^ 2 (lib/openzeppelin-contracts/contracts/utils/math/Math.sol#259)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#incorrect-exponentiation
+INFO:Detectors:
+Detector: divide-before-multiply
+ThresholdPots.currentRound() (contracts/ThresholdPots.sol#162-169) performs a multiplication on the result of a division:
+	- offset = (block.timestamp - schedule.start) / schedule.settings.tradingSeconds (contracts/ThresholdPots.sol#165)
+	- start = schedule.start + offset * schedule.settings.tradingSeconds (contracts/ThresholdPots.sol#166)
+UpDownRounds.currentRound() (contracts/UpDownRounds.sol#175-184) performs a multiplication on the result of a division:
+	- offset = (block.timestamp - schedule.start) / settings.tradingSeconds (contracts/UpDownRounds.sol#180)
+	- start = schedule.start + offset * settings.tradingSeconds (contracts/UpDownRounds.sol#181)
+TickMath.getSqrtRatioAtTick(int24) (contracts/readings/TickMath.sol#26-57) performs a multiplication on the result of a division:
+	- ratio = (ratio * 0x48a170391f7dc42444e8fa2) >> 128 (contracts/readings/TickMath.sol#49)
+	- ratio = type()(uint256).max / ratio (contracts/readings/TickMath.sol#51)
+Math.mulDiv(uint256,uint256,uint256) (lib/openzeppelin-contracts/contracts/utils/math/Math.sol#206-277) performs a multiplication on the result of a division:
+	- denominator = denominator / twos (lib/openzeppelin-contracts/contracts/utils/math/Math.sol#244)
+	- inverse = (3 * denominator) ^ 2 (lib/openzeppelin-contracts/contracts/utils/math/Math.sol#259)
+Math.mulDiv(uint256,uint256,uint256) (lib/openzeppelin-contracts/contracts/utils/math/Math.sol#206-277) performs a multiplication on the result of a division:
+	- denominator = denominator / twos (lib/openzeppelin-contracts/contracts/utils/math/Math.sol#244)
+	- inverse *= 2 - denominator * inverse (lib/openzeppelin-contracts/contracts/utils/math/Math.sol#263)
+Math.mulDiv(uint256,uint256,uint256) (lib/openzeppelin-contracts/contracts/utils/math/Math.sol#206-277) performs a multiplication on the result of a division:
+	- denominator = denominator / twos (lib/openzeppelin-contracts/contracts/utils/math/Math.sol#244)
+	- inverse *= 2 - denominator * inverse (lib/openzeppelin-contracts/contracts/utils/math/Math.sol#264)
+Math.mulDiv(uint256,uint256,uint256) (lib/openzeppelin-contracts/contracts/utils/math/Math.sol#206-277) performs a multiplication on the result of a division:
+	- denominator = denominator / twos (lib/openzeppelin-contracts/contracts/utils/math/Math.sol#244)
+	- inverse *= 2 - denominator * inverse (lib/openzeppelin-contracts/contracts/utils/math/Math.sol#265)
+Math.mulDiv(uint256,uint256,uint256) (lib/openzeppelin-contracts/contracts/utils/math/Math.sol#206-277) performs a multiplication on the result of a division:
+	- denominator = denominator / twos (lib/openzeppelin-contracts/contracts/utils/math/Math.sol#244)
+	- inverse *= 2 - denominator * inverse (lib/openzeppelin-contracts/contracts/utils/math/Math.sol#266)
+Math.mulDiv(uint256,uint256,uint256) (lib/openzeppelin-contracts/contracts/utils/math/Math.sol#206-277) performs a multiplication on the result of a division:
+	- denominator = denominator / twos (lib/openzeppelin-contracts/contracts/utils/math/Math.sol#244)
+	- inverse *= 2 - denominator * inverse (lib/openzeppelin-contracts/contracts/utils/math/Math.sol#267)
+Math.mulDiv(uint256,uint256,uint256) (lib/openzeppelin-contracts/contracts/utils/math/Math.sol#206-277) performs a multiplication on the result of a division:
+	- denominator = denominator / twos (lib/openzeppelin-contracts/contracts/utils/math/Math.sol#244)
+	- inverse *= 2 - denominator * inverse (lib/openzeppelin-contracts/contracts/utils/math/Math.sol#268)
+Math.mulDiv(uint256,uint256,uint256) (lib/openzeppelin-contracts/contracts/utils/math/Math.sol#206-277) performs a multiplication on the result of a division:
+	- low = low / twos (lib/openzeppelin-contracts/contracts/utils/math/Math.sol#247)
+	- result = low * inverse (lib/openzeppelin-contracts/contracts/utils/math/Math.sol#274)
+Math.invMod(uint256,uint256) (lib/openzeppelin-contracts/contracts/utils/math/Math.sol#317-363) performs a multiplication on the result of a division:
+	- quotient = gcd / remainder (lib/openzeppelin-contracts/contracts/utils/math/Math.sol#339)
+	- (gcd,remainder) = (remainder,gcd - remainder * quotient) (lib/openzeppelin-contracts/contracts/utils/math/Math.sol#341-348)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#divide-before-multiply
+INFO:Detectors:
+Detector: incorrect-equality
+ThresholdPots._refundable(ThresholdPots.Round) (contracts/ThresholdPots.sol#361-380) uses a dangerous strict equality:
+	- r.yesTotal == 0 || r.noTotal == 0 (contracts/ThresholdPots.sol#366)
+ThresholdPots._refundable(ThresholdPots.Round) (contracts/ThresholdPots.sol#361-380) uses a dangerous strict equality:
+	- r.endBlock == 0 (contracts/ThresholdPots.sol#367)
+ThresholdPots._refundable(ThresholdPots.Round) (contracts/ThresholdPots.sol#361-380) uses a dangerous strict equality:
+	- r.metric == Metric.Price (contracts/ThresholdPots.sol#368)
+ThresholdPots._scheduledRound(uint256) (contracts/ThresholdPots.sol#413-443) uses a dangerous strict equality:
+	- roundId == 0 || ! s_seeded (contracts/ThresholdPots.sol#414)
+StakeAsset._sendStake(address,uint256) (contracts/StakeAsset.sol#38-55) uses a dangerous strict equality:
+	- amount == 0 (contracts/StakeAsset.sol#39)
+ThresholdPots.claim(uint256) (contracts/ThresholdPots.sol#305-340) uses a dangerous strict equality:
+	- current.result == Result.None (contracts/ThresholdPots.sol#311)
+ThresholdPots.claim(uint256) (contracts/ThresholdPots.sol#305-340) uses a dangerous strict equality:
+	- r.result == Result.Yes || r.result == Result.No (contracts/ThresholdPots.sol#320)
+ThresholdPots.claim(uint256) (contracts/ThresholdPots.sol#305-340) uses a dangerous strict equality:
+	- r.remainingWinningStake == 0 (contracts/ThresholdPots.sol#324)
+ThresholdPots.claim(uint256) (contracts/ThresholdPots.sol#305-340) uses a dangerous strict equality:
+	- r.result == Result.Yes (contracts/ThresholdPots.sol#321)
+ThresholdPots.claimable(uint256,address) (contracts/ThresholdPots.sol#293-303) uses a dangerous strict equality:
+	- r.result == Result.Refunded || _refundable(r) || r.result == Result.Tie || r.result == Result.Unmatched (contracts/ThresholdPots.sol#297)
+ThresholdPots.claimable(uint256,address) (contracts/ThresholdPots.sol#293-303) uses a dangerous strict equality:
+	- r.result == Result.None (contracts/ThresholdPots.sol#300)
+ThresholdPots.claimable(uint256,address) (contracts/ThresholdPots.sol#293-303) uses a dangerous strict equality:
+	- r.result == Result.Yes (contracts/ThresholdPots.sol#301-302)
+ThresholdPots.currentValue(uint256) (contracts/ThresholdPots.sol#201-204) uses a dangerous strict equality:
+	- r.metric == Metric.Price (contracts/ThresholdPots.sol#203)
+ThresholdPots.phase(uint256) (contracts/ThresholdPots.sol#171-178) uses a dangerous strict equality:
+	- r.result == Result.Refunded || _refundable(r) (contracts/ThresholdPots.sol#173)
+ThresholdPots.quoteStake(uint256,address,ThresholdPots.Side,uint256) (contracts/ThresholdPots.sol#191-198) uses a dangerous strict equality:
+	- total == 0 (contracts/ThresholdPots.sol#196)
+ThresholdPots.setCampaignSettings(ThresholdPots.CampaignSettings) (contracts/ThresholdPots.sol#228-240) uses a dangerous strict equality:
+	- active == 0 (contracts/ThresholdPots.sol#231)
+ThresholdPots.setCampaignSettings(ThresholdPots.CampaignSettings) (contracts/ThresholdPots.sol#228-240) uses a dangerous strict equality:
+	- s_schedule[last].firstRound == active + 1 (contracts/ThresholdPots.sol#237)
+ThresholdPots.stopCampaign() (contracts/ThresholdPots.sol#243-249) uses a dangerous strict equality:
+	- active == 0 (contracts/ThresholdPots.sol#246)
+UpDownRounds._refundable(UpDownRounds.Round) (contracts/UpDownRounds.sol#428-443) uses a dangerous strict equality:
+	- r.startBlock == 0 || r.endBlock == 0 (contracts/UpDownRounds.sol#432)
+UpDownRounds._scheduledRound(uint256) (contracts/UpDownRounds.sol#483-511) uses a dangerous strict equality:
+	- roundId == 0 || ! s_seeded (contracts/UpDownRounds.sol#484)
+UpDownRounds.captureBoundary(uint256) (contracts/UpDownRounds.sol#344-355) uses a dangerous strict equality:
+	- start = block.timestamp == r.cutoff (contracts/UpDownRounds.sol#347)
+UpDownRounds.claim(uint256) (contracts/UpDownRounds.sol#392-407) uses a dangerous strict equality:
+	- current.result == Result.None (contracts/UpDownRounds.sol#397)
+UpDownRounds.claimable(uint256,address) (contracts/UpDownRounds.sol#383-390) uses a dangerous strict equality:
+	- r.result == Result.Refunded || _refundable(r) || r.result == Result.Tie (contracts/UpDownRounds.sol#387)
+UpDownRounds.claimable(uint256,address) (contracts/UpDownRounds.sol#383-390) uses a dangerous strict equality:
+	- r.result == Result.None (contracts/UpDownRounds.sol#388)
+UpDownRounds.claimable(uint256,address) (contracts/UpDownRounds.sol#383-390) uses a dangerous strict equality:
+	- r.result == Result.Up (contracts/UpDownRounds.sol#389)
+UpDownRounds.phase(uint256) (contracts/UpDownRounds.sol#219-226) uses a dangerous strict equality:
+	- r.result == Result.Refunded || _refundable(r) (contracts/UpDownRounds.sol#221)
+UpDownRounds.setCampaignSettings(uint256,uint256,uint32,uint32,uint64,BasePoolReader) (contracts/UpDownRounds.sol#187-208) uses a dangerous strict equality:
+	- active == 0 (contracts/UpDownRounds.sol#197)
+UpDownRounds.setCampaignSettings(uint256,uint256,uint32,uint32,uint64,BasePoolReader) (contracts/UpDownRounds.sol#187-208) uses a dangerous strict equality:
+	- s_schedule[last].firstRound == active + 1 (contracts/UpDownRounds.sol#205)
+UpDownRounds.stopCampaign() (contracts/UpDownRounds.sol#211-217) uses a dangerous strict equality:
+	- active == 0 (contracts/UpDownRounds.sol#214)
+BasePoolReader.read(uint256) (contracts/readings/BasePoolReader.sol#106-109) uses a dangerous strict equality:
+	- reading.timestamp == 0 || endBlock > block.number (contracts/readings/BasePoolReader.sol#108)
+MarketCapReader.previewMarketCap() (contracts/readings/MarketCapReader.sol#66-70) uses a dangerous strict equality:
+	- i_supplyMode == SupplyMode.Unsupported || block.number == 0 (contracts/readings/MarketCapReader.sol#67)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#dangerous-strict-equalities
+INFO:Detectors:
+Detector: locked-ether
+Contract locking ether found:
+	Contract PredictionMarket (contracts/PredictionMarket.sol#7-255) has payable functions:
+	 - PredictionMarket.constructor(address,address,string,uint256,uint8,uint8) (contracts/PredictionMarket.sol#72-82)
+	 - PredictionMarket.addLiquidity() (contracts/PredictionMarket.sol#92-94)
+	 - PredictionMarket.buyTokensWithETH(PredictionMarket.Outcome,uint256) (contracts/PredictionMarket.sol#128-130)
+	But does not have a function to withdraw the ether
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#contracts-that-lock-ether
+INFO:Detectors:
+Detector: uninitialized-local
+BasePoolReader.preview().cumulatives (contracts/readings/BasePoolReader.sol#76) is a local variable never initialized
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#uninitialized-local-variables
+INFO:Detectors:
+Detector: unused-return
+BasePoolReader._mulDiv(uint256,uint256,uint256) (contracts/readings/BasePoolReader.sol#112-116) ignores return value by (high,None) = Math.mul512(x,y) (contracts/readings/BasePoolReader.sol#113)
+MarketCapReader._withSupply(MarketCapReader.MarketCapReading,uint256) (contracts/readings/MarketCapReader.sol#72-102) ignores return value by (high,None) = Math.mul512(result.reading.price,result.totalSupply) (contracts/readings/MarketCapReader.sol#98)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#unused-return
+INFO:Detectors:
+Detector: shadowing-local
+PredictionMarketToken.constructor(string,string,address,uint256).name (contracts/PredictionMarketToken.sol#14) shadows:
+	- ERC20.name() (lib/openzeppelin-contracts/contracts/token/ERC20/ERC20.sol#52-54) (function)
+	- IERC20Metadata.name() (lib/openzeppelin-contracts/contracts/token/ERC20/extensions/IERC20Metadata.sol#15) (function)
+PredictionMarketToken.constructor(string,string,address,uint256).symbol (contracts/PredictionMarketToken.sol#14) shadows:
+	- ERC20.symbol() (lib/openzeppelin-contracts/contracts/token/ERC20/ERC20.sol#60-62) (function)
+	- IERC20Metadata.symbol() (lib/openzeppelin-contracts/contracts/token/ERC20/extensions/IERC20Metadata.sol#20) (function)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#local-variable-shadowing
+INFO:Detectors:
+Detector: missing-zero-check
+PredictionMarketToken.constructor(string,string,address,uint256)._liquidityProvider (contracts/PredictionMarketToken.sol#14) lacks a zero-check on :
+		- liquidityProvider = _liquidityProvider (contracts/PredictionMarketToken.sol#18)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#missing-zero-address-validation
+INFO:Detectors:
+Detector: timestamp
+ThresholdPots.renounceOwnership() (contracts/ThresholdPots.sol#139-143) uses timestamp for comparisons
+	Dangerous comparisons:
+	- fundingBalance != 0 (contracts/ThresholdPots.sol#140)
+ThresholdPots.seedRound(ThresholdPots.CampaignSettings) (contracts/ThresholdPots.sol#152-160) uses timestamp for comparisons
+	Dangerous comparisons:
+	- settings.endTime <= block.timestamp (contracts/ThresholdPots.sol#156)
+ThresholdPots.currentRound() (contracts/ThresholdPots.sol#162-169) uses timestamp for comparisons
+	Dangerous comparisons:
+	- start >= schedule.settings.endTime || (stopped && start >= stopAfter) (contracts/ThresholdPots.sol#167)
+ThresholdPots.phase(uint256) (contracts/ThresholdPots.sol#171-178) uses timestamp for comparisons
+	Dangerous comparisons:
+	- r.result == Result.Refunded || _refundable(r) (contracts/ThresholdPots.sol#173)
+	- r.result != Result.None (contracts/ThresholdPots.sol#174)
+	- block.timestamp < r.cutoff (contracts/ThresholdPots.sol#175)
+	- block.timestamp < r.windowEnd (contracts/ThresholdPots.sol#176)
+ThresholdPots.quoteStake(uint256,address,ThresholdPots.Side,uint256) (contracts/ThresholdPots.sol#191-198) uses timestamp for comparisons
+	Dangerous comparisons:
+	- total == 0 (contracts/ThresholdPots.sol#196)
+ThresholdPots.currentValue(uint256) (contracts/ThresholdPots.sol#201-204) uses timestamp for comparisons
+	Dangerous comparisons:
+	- r.metric == Metric.Price (contracts/ThresholdPots.sol#203)
+ThresholdPots.setCampaignSettings(ThresholdPots.CampaignSettings) (contracts/ThresholdPots.sol#228-240) uses timestamp for comparisons
+	Dangerous comparisons:
+	- active == 0 (contracts/ThresholdPots.sol#231)
+	- settings.endTime <= current.cutoff (contracts/ThresholdPots.sol#234)
+	- s_schedule[last].firstRound == active + 1 (contracts/ThresholdPots.sol#237)
+ThresholdPots.stopCampaign() (contracts/ThresholdPots.sol#243-249) uses timestamp for comparisons
+	Dangerous comparisons:
+	- active == 0 (contracts/ThresholdPots.sol#246)
+ThresholdPots.captureBoundary(uint256) (contracts/ThresholdPots.sol#252-261) uses timestamp for comparisons
+	Dangerous comparisons:
+	- block.timestamp != r.windowEnd (contracts/ThresholdPots.sol#255)
+ThresholdPots.settle(uint256) (contracts/ThresholdPots.sol#263-291) uses timestamp for comparisons
+	Dangerous comparisons:
+	- ! s_rounds[roundId].materialized && _refundable(_viewRound(roundId)) (contracts/ThresholdPots.sol#264)
+	- block.timestamp < r.windowEnd (contracts/ThresholdPots.sol#267)
+ThresholdPots.claimable(uint256,address) (contracts/ThresholdPots.sol#293-303) uses timestamp for comparisons
+	Dangerous comparisons:
+	- r.result == Result.Refunded || _refundable(r) || r.result == Result.Tie || r.result == Result.Unmatched (contracts/ThresholdPots.sol#297)
+	- r.result == Result.None (contracts/ThresholdPots.sol#300)
+	- r.result == Result.Yes (contracts/ThresholdPots.sol#301-302)
+ThresholdPots.claim(uint256) (contracts/ThresholdPots.sol#305-340) uses timestamp for comparisons
+	Dangerous comparisons:
+	- current.result == Result.None (contracts/ThresholdPots.sol#311)
+	- r.result == Result.Yes || r.result == Result.No (contracts/ThresholdPots.sol#320)
+	- r.remainingWinningStake == 0 (contracts/ThresholdPots.sol#324)
+	- amount != 0 (contracts/ThresholdPots.sol#337)
+	- r.result == Result.Yes (contracts/ThresholdPots.sol#321)
+ThresholdPots.withdrawFunding(uint256) (contracts/ThresholdPots.sol#343-349) uses timestamp for comparisons
+	Dangerous comparisons:
+	- amount > fundingBalance (contracts/ThresholdPots.sol#345)
+ThresholdPots._refundable(ThresholdPots.Round) (contracts/ThresholdPots.sol#361-380) uses timestamp for comparisons
+	Dangerous comparisons:
+	- r.result != Result.None (contracts/ThresholdPots.sol#362)
+	- block.timestamp >= r.windowEnd + UNSETTLED_EXPIRY (contracts/ThresholdPots.sol#363)
+	- block.timestamp < r.windowEnd + READING_GRACE_PERIOD (contracts/ThresholdPots.sol#364)
+	- r.yesTotal == 0 || r.noTotal == 0 (contracts/ThresholdPots.sol#366)
+	- r.endBlock == 0 (contracts/ThresholdPots.sol#367)
+	- r.metric == Metric.Price (contracts/ThresholdPots.sol#368)
+	- reading.timestamp != r.windowEnd (contracts/ThresholdPots.sol#370)
+	- reading_scope_0.reading.timestamp != r.windowEnd (contracts/ThresholdPots.sol#376)
+ThresholdPots._scheduleAtTime(uint256) (contracts/ThresholdPots.sol#404-411) uses timestamp for comparisons
+	Dangerous comparisons:
+	- index + 1 < high (contracts/ThresholdPots.sol#406)
+	- s_schedule[mid].start <= timestamp (contracts/ThresholdPots.sol#408)
+ThresholdPots._scheduledRound(uint256) (contracts/ThresholdPots.sol#413-443) uses timestamp for comparisons
+	Dangerous comparisons:
+	- roundId == 0 || ! s_seeded (contracts/ThresholdPots.sol#414)
+	- index + 1 < high (contracts/ThresholdPots.sol#417)
+	- s_schedule[mid].firstRound <= roundId (contracts/ThresholdPots.sol#419)
+	- offset > (settings.endTime - schedule.start) / settings.tradingSeconds (contracts/ThresholdPots.sol#425)
+	- start >= settings.endTime || start > block.timestamp || (stopped && start >= stopAfter) (contracts/ThresholdPots.sol#427)
+	- r.payer == address(0) (contracts/ThresholdPots.sol#439)
+ThresholdPots._viewPosition(uint256,address,ThresholdPots.Round) (contracts/ThresholdPots.sol#450-456) uses timestamp for comparisons
+	Dangerous comparisons:
+	- ! r.materialized && player == r.payer (contracts/ThresholdPots.sol#452)
+ThresholdPots._materialize(uint256) (contracts/ThresholdPots.sol#458-472) uses timestamp for comparisons
+	Dangerous comparisons:
+	- scheduled.pot > fundingBalance (contracts/ThresholdPots.sol#462)
+UpDownRounds.renounceOwnership() (contracts/UpDownRounds.sol#143-147) uses timestamp for comparisons
+	Dangerous comparisons:
+	- fundingBalance != 0 (contracts/UpDownRounds.sol#144)
+UpDownRounds.currentRound() (contracts/UpDownRounds.sol#175-184) uses timestamp for comparisons
+	Dangerous comparisons:
+	- start >= settings.endTime || (stopped && start >= stopAfter) (contracts/UpDownRounds.sol#182)
+UpDownRounds.setCampaignSettings(uint256,uint256,uint32,uint32,uint64,BasePoolReader) (contracts/UpDownRounds.sol#187-208) uses timestamp for comparisons
+	Dangerous comparisons:
+	- active == 0 (contracts/UpDownRounds.sol#197)
+	- endTime <= current.cutoff (contracts/UpDownRounds.sol#202)
+	- s_schedule[last].firstRound == active + 1 (contracts/UpDownRounds.sol#205)
+UpDownRounds.stopCampaign() (contracts/UpDownRounds.sol#211-217) uses timestamp for comparisons
+	Dangerous comparisons:
+	- active == 0 (contracts/UpDownRounds.sol#214)
+UpDownRounds.phase(uint256) (contracts/UpDownRounds.sol#219-226) uses timestamp for comparisons
+	Dangerous comparisons:
+	- r.result == Result.Refunded || _refundable(r) (contracts/UpDownRounds.sol#221)
+	- r.result != Result.None (contracts/UpDownRounds.sol#222)
+	- block.timestamp < r.cutoff (contracts/UpDownRounds.sol#223)
+	- block.timestamp < r.windowEnd (contracts/UpDownRounds.sol#224)
+UpDownRounds.quote(uint256,UpDownRounds.Side,uint256) (contracts/UpDownRounds.sol#251-262) uses timestamp for comparisons
+	Dangerous comparisons:
+	- shares > r.sharesPerSide - sold (contracts/UpDownRounds.sol#255)
+UpDownRounds.buy(uint256,UpDownRounds.Side,uint256,uint256) (contracts/UpDownRounds.sol#266-294) uses timestamp for comparisons
+	Dangerous comparisons:
+	- cost > maxCost (contracts/UpDownRounds.sol#270)
+	- p.bought + cost > r.stakeCap (contracts/UpDownRounds.sol#273)
+	- p.bought > p.proceeds (contracts/UpDownRounds.sol#277)
+UpDownRounds.quoteSell(uint256,UpDownRounds.Side,uint256) (contracts/UpDownRounds.sol#297-307) uses timestamp for comparisons
+	Dangerous comparisons:
+	- shares > sold - lock (contracts/UpDownRounds.sol#302)
+UpDownRounds.sell(uint256,UpDownRounds.Side,uint256,uint256) (contracts/UpDownRounds.sol#309-341) uses timestamp for comparisons
+	Dangerous comparisons:
+	- proceeds < minProceeds (contracts/UpDownRounds.sol#318)
+	- proceeds > r.collateral (contracts/UpDownRounds.sol#335)
+	- p.bought > p.proceeds (contracts/UpDownRounds.sol#323)
+UpDownRounds.captureBoundary(uint256) (contracts/UpDownRounds.sol#344-355) uses timestamp for comparisons
+	Dangerous comparisons:
+	- start = block.timestamp == r.cutoff (contracts/UpDownRounds.sol#347)
+	- ! start && block.timestamp != r.windowEnd (contracts/UpDownRounds.sol#348)
+	- reading.timestamp != block.timestamp (contracts/UpDownRounds.sol#351)
+UpDownRounds.settle(uint256) (contracts/UpDownRounds.sol#357-381) uses timestamp for comparisons
+	Dangerous comparisons:
+	- s_rounds[roundId].seededLiquidity == 0 && _refundable(_viewRound(roundId)) (contracts/UpDownRounds.sol#359)
+	- block.timestamp < r.windowEnd (contracts/UpDownRounds.sol#361)
+UpDownRounds.claimable(uint256,address) (contracts/UpDownRounds.sol#383-390) uses timestamp for comparisons
+	Dangerous comparisons:
+	- r.result == Result.Refunded || _refundable(r) || r.result == Result.Tie (contracts/UpDownRounds.sol#387)
+	- r.result == Result.None (contracts/UpDownRounds.sol#388)
+	- r.result == Result.Up (contracts/UpDownRounds.sol#389)
+UpDownRounds.claim(uint256) (contracts/UpDownRounds.sol#392-407) uses timestamp for comparisons
+	Dangerous comparisons:
+	- current.result == Result.None (contracts/UpDownRounds.sol#397)
+UpDownRounds.withdrawLiquidity(uint256) (contracts/UpDownRounds.sol#410-416) uses timestamp for comparisons
+	Dangerous comparisons:
+	- amount > fundingBalance (contracts/UpDownRounds.sol#412)
+UpDownRounds._refundable(UpDownRounds.Round) (contracts/UpDownRounds.sol#428-443) uses timestamp for comparisons
+	Dangerous comparisons:
+	- r.result != Result.None (contracts/UpDownRounds.sol#429)
+	- block.timestamp >= r.windowEnd + UNSETTLED_EXPIRY (contracts/UpDownRounds.sol#430)
+	- block.timestamp < r.windowEnd + READING_GRACE_PERIOD (contracts/UpDownRounds.sol#431)
+	- r.startBlock == 0 || r.endBlock == 0 (contracts/UpDownRounds.sol#432)
+	- start.timestamp != r.cutoff (contracts/UpDownRounds.sol#434)
+	- end.timestamp != r.windowEnd (contracts/UpDownRounds.sol#439)
+UpDownRounds._scheduleAtTime(uint256) (contracts/UpDownRounds.sol#474-481) uses timestamp for comparisons
+	Dangerous comparisons:
+	- index + 1 < high (contracts/UpDownRounds.sol#476)
+	- s_schedule[mid].start <= timestamp (contracts/UpDownRounds.sol#478)
+UpDownRounds._scheduledRound(uint256) (contracts/UpDownRounds.sol#483-511) uses timestamp for comparisons
+	Dangerous comparisons:
+	- roundId == 0 || ! s_seeded (contracts/UpDownRounds.sol#484)
+	- index + 1 < high (contracts/UpDownRounds.sol#487)
+	- s_schedule[mid].firstRound <= roundId (contracts/UpDownRounds.sol#489)
+	- offset > (settings.endTime - schedule.start) / settings.tradingSeconds (contracts/UpDownRounds.sol#496)
+	- start >= settings.endTime || start > block.timestamp || (stopped && start >= stopAfter) (contracts/UpDownRounds.sol#498)
+UpDownRounds._viewRound(uint256) (contracts/UpDownRounds.sol#513-516) uses timestamp for comparisons
+	Dangerous comparisons:
+	- s_rounds[roundId].seededLiquidity != 0 (contracts/UpDownRounds.sol#514)
+UpDownRounds._materialize(uint256) (contracts/UpDownRounds.sol#518-529) uses timestamp for comparisons
+	Dangerous comparisons:
+	- seed > fundingBalance (contracts/UpDownRounds.sol#523)
+BasePoolReader.capture() (contracts/readings/BasePoolReader.sol#63-69) uses timestamp for comparisons
+	Dangerous comparisons:
+	- reading.timestamp != 0 (contracts/readings/BasePoolReader.sol#65)
+BasePoolReader.preview() (contracts/readings/BasePoolReader.sol#72-103) uses timestamp for comparisons
+	Dangerous comparisons:
+	- block.timestamp < i_lookback (contracts/readings/BasePoolReader.sol#73)
+BasePoolReader.read(uint256) (contracts/readings/BasePoolReader.sol#106-109) uses timestamp for comparisons
+	Dangerous comparisons:
+	- reading.timestamp == 0 || endBlock > block.number (contracts/readings/BasePoolReader.sol#108)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#block-timestamp
+INFO:Detectors:
+Detector: assembly
+SafeERC20.tryGetDecimals(IERC20) (lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol#169-177) uses assembly
+	- INLINE ASM (lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol#171-176)
+SafeERC20._safeTransfer(IERC20,address,uint256,bool) (lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol#188-212) uses assembly
+	- INLINE ASM (lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol#191-211)
+SafeERC20._safeTransferFrom(IERC20,address,address,uint256,bool) (lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol#224-256) uses assembly
+	- INLINE ASM (lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol#233-255)
+SafeERC20._safeApprove(IERC20,address,uint256,bool) (lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol#267-291) uses assembly
+	- INLINE ASM (lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol#270-290)
+Panic.panic(uint256) (lib/openzeppelin-contracts/contracts/utils/Panic.sol#50-56) uses assembly
+	- INLINE ASM (lib/openzeppelin-contracts/contracts/utils/Panic.sol#51-55)
+StorageSlot.getAddressSlot(bytes32) (lib/openzeppelin-contracts/contracts/utils/StorageSlot.sol#66-70) uses assembly
+	- INLINE ASM (lib/openzeppelin-contracts/contracts/utils/StorageSlot.sol#67-69)
+StorageSlot.getBooleanSlot(bytes32) (lib/openzeppelin-contracts/contracts/utils/StorageSlot.sol#75-79) uses assembly
+	- INLINE ASM (lib/openzeppelin-contracts/contracts/utils/StorageSlot.sol#76-78)
+StorageSlot.getBytes32Slot(bytes32) (lib/openzeppelin-contracts/contracts/utils/StorageSlot.sol#84-88) uses assembly
+	- INLINE ASM (lib/openzeppelin-contracts/contracts/utils/StorageSlot.sol#85-87)
+StorageSlot.getUint256Slot(bytes32) (lib/openzeppelin-contracts/contracts/utils/StorageSlot.sol#93-97) uses assembly
+	- INLINE ASM (lib/openzeppelin-contracts/contracts/utils/StorageSlot.sol#94-96)
+StorageSlot.getInt256Slot(bytes32) (lib/openzeppelin-contracts/contracts/utils/StorageSlot.sol#102-106) uses assembly
+	- INLINE ASM (lib/openzeppelin-contracts/contracts/utils/StorageSlot.sol#103-105)
+StorageSlot.getStringSlot(bytes32) (lib/openzeppelin-contracts/contracts/utils/StorageSlot.sol#111-115) uses assembly
+	- INLINE ASM (lib/openzeppelin-contracts/contracts/utils/StorageSlot.sol#112-114)
+StorageSlot.getStringSlot(string) (lib/openzeppelin-contracts/contracts/utils/StorageSlot.sol#120-124) uses assembly
+	- INLINE ASM (lib/openzeppelin-contracts/contracts/utils/StorageSlot.sol#121-123)
+StorageSlot.getBytesSlot(bytes32) (lib/openzeppelin-contracts/contracts/utils/StorageSlot.sol#129-133) uses assembly
+	- INLINE ASM (lib/openzeppelin-contracts/contracts/utils/StorageSlot.sol#130-132)
+StorageSlot.getBytesSlot(bytes) (lib/openzeppelin-contracts/contracts/utils/StorageSlot.sol#138-142) uses assembly
+	- INLINE ASM (lib/openzeppelin-contracts/contracts/utils/StorageSlot.sol#139-141)
+Math.add512(uint256,uint256) (lib/openzeppelin-contracts/contracts/utils/math/Math.sol#25-30) uses assembly
+	- INLINE ASM (lib/openzeppelin-contracts/contracts/utils/math/Math.sol#26-29)
+Math.mul512(uint256,uint256) (lib/openzeppelin-contracts/contracts/utils/math/Math.sol#37-46) uses assembly
+	- INLINE ASM (lib/openzeppelin-contracts/contracts/utils/math/Math.sol#41-45)
+Math.tryMul(uint256,uint256) (lib/openzeppelin-contracts/contracts/utils/math/Math.sol#73-84) uses assembly
+	- INLINE ASM (lib/openzeppelin-contracts/contracts/utils/math/Math.sol#76-80)
+Math.tryDiv(uint256,uint256) (lib/openzeppelin-contracts/contracts/utils/math/Math.sol#89-97) uses assembly
+	- INLINE ASM (lib/openzeppelin-contracts/contracts/utils/math/Math.sol#92-95)
+Math.tryMod(uint256,uint256) (lib/openzeppelin-contracts/contracts/utils/math/Math.sol#102-110) uses assembly
+	- INLINE ASM (lib/openzeppelin-contracts/contracts/utils/math/Math.sol#105-108)
+Math.mulDiv(uint256,uint256,uint256) (lib/openzeppelin-contracts/contracts/utils/math/Math.sol#206-277) uses assembly
+	- INLINE ASM (lib/openzeppelin-contracts/contracts/utils/math/Math.sol#229-236)
+	- INLINE ASM (lib/openzeppelin-contracts/contracts/utils/math/Math.sol#242-251)
+Math.tryModExp(uint256,uint256,uint256) (lib/openzeppelin-contracts/contracts/utils/math/Math.sol#411-435) uses assembly
+	- INLINE ASM (lib/openzeppelin-contracts/contracts/utils/math/Math.sol#413-434)
+Math.tryModExp(bytes,bytes,bytes) (lib/openzeppelin-contracts/contracts/utils/math/Math.sol#451-473) uses assembly
+	- INLINE ASM (lib/openzeppelin-contracts/contracts/utils/math/Math.sol#463-472)
+Math._zeroBytes(bytes) (lib/openzeppelin-contracts/contracts/utils/math/Math.sol#478-490) uses assembly
+	- INLINE ASM (lib/openzeppelin-contracts/contracts/utils/math/Math.sol#482-484)
+Math.log2(uint256) (lib/openzeppelin-contracts/contracts/utils/math/Math.sol#619-658) uses assembly
+	- INLINE ASM (lib/openzeppelin-contracts/contracts/utils/math/Math.sol#655-657)
+SafeCast.toUint(bool) (lib/openzeppelin-contracts/contracts/utils/math/SafeCast.sol#1157-1161) uses assembly
+	- INLINE ASM (lib/openzeppelin-contracts/contracts/utils/math/SafeCast.sol#1158-1160)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#assembly-usage
+INFO:Detectors:
+Detector: pragma
+6 different versions of Solidity are used:
+	- Version constraint >=0.8.0<0.9.0 is used by:
+		->=0.8.0<0.9.0 (contracts/IPredictionMarket.sol#2)
+		->=0.8.0<0.9.0 (contracts/PredictionMarket.sol#2)
+		->=0.8.0<0.9.0 (contracts/PredictionMarketToken.sol#2)
+	- Version constraint ^0.8.24 is used by:
+		-^0.8.24 (contracts/StakeAsset.sol#2)
+		-^0.8.24 (contracts/ThresholdPots.sol#2)
+		-^0.8.24 (contracts/UpDownRounds.sol#2)
+		-^0.8.24 (contracts/readings/BasePoolReader.sol#2)
+		-^0.8.24 (contracts/readings/IObservationPool.sol#2)
+		-^0.8.24 (contracts/readings/MarketCapReader.sol#2)
+		-^0.8.24 (contracts/readings/TickMath.sol#2)
+	- Version constraint ^0.8.20 is used by:
+		-^0.8.20 (lib/openzeppelin-contracts/contracts/access/Ownable.sol#4)
+		-^0.8.20 (lib/openzeppelin-contracts/contracts/token/ERC20/ERC20.sol#4)
+		-^0.8.20 (lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol#4)
+		-^0.8.20 (lib/openzeppelin-contracts/contracts/utils/Context.sol#4)
+		-^0.8.20 (lib/openzeppelin-contracts/contracts/utils/Panic.sol#4)
+		-^0.8.20 (lib/openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol#4)
+		-^0.8.20 (lib/openzeppelin-contracts/contracts/utils/StorageSlot.sol#5)
+		-^0.8.20 (lib/openzeppelin-contracts/contracts/utils/math/Math.sol#4)
+		-^0.8.20 (lib/openzeppelin-contracts/contracts/utils/math/SafeCast.sol#5)
+	- Version constraint >=0.8.4 is used by:
+		->=0.8.4 (lib/openzeppelin-contracts/contracts/governance/utils/IVotes.sol#4)
+		->=0.8.4 (lib/openzeppelin-contracts/contracts/interfaces/IERC5805.sol#4)
+		->=0.8.4 (lib/openzeppelin-contracts/contracts/interfaces/draft-IERC6093.sol#4)
+	- Version constraint >=0.6.2 is used by:
+		->=0.6.2 (lib/openzeppelin-contracts/contracts/interfaces/IERC1363.sol#4)
+		->=0.6.2 (lib/openzeppelin-contracts/contracts/interfaces/IERC20Metadata.sol#4)
+		->=0.6.2 (lib/openzeppelin-contracts/contracts/token/ERC20/extensions/IERC20Metadata.sol#4)
+	- Version constraint >=0.4.16 is used by:
+		->=0.4.16 (lib/openzeppelin-contracts/contracts/interfaces/IERC165.sol#4)
+		->=0.4.16 (lib/openzeppelin-contracts/contracts/interfaces/IERC20.sol#4)
+		->=0.4.16 (lib/openzeppelin-contracts/contracts/interfaces/IERC6372.sol#4)
+		->=0.4.16 (lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol#4)
+		->=0.4.16 (lib/openzeppelin-contracts/contracts/utils/introspection/IERC165.sol#4)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#different-pragma-directives-are-used
+INFO:Detectors:
+Detector: cyclomatic-complexity
+ThresholdPots.settle(uint256) (contracts/ThresholdPots.sol#263-291) has a high cyclomatic complexity (12).
+TickMath.getSqrtRatioAtTick(int24) (contracts/readings/TickMath.sol#26-57) has a high cyclomatic complexity (24).
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#cyclomatic-complexity
+INFO:Detectors:
+Detector: dead-code
+PredictionMarket._calculatePriceInEth(PredictionMarket.Outcome,uint256,bool) (contracts/PredictionMarket.sol#180-186) is never used and should be removed
+PredictionMarket._calculateProbability(uint256,uint256) (contracts/PredictionMarket.sol#203-205) is never used and should be removed
+PredictionMarket._getCurrentReserves(PredictionMarket.Outcome) (contracts/PredictionMarket.sol#193-195) is never used and should be removed
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#dead-code
+INFO:Detectors:
+Detector: solc-version
+Version constraint >=0.8.0<0.9.0 is too complex.
+It is used by:
+	- >=0.8.0<0.9.0 (contracts/IPredictionMarket.sol#2)
+	- >=0.8.0<0.9.0 (contracts/PredictionMarket.sol#2)
+	- >=0.8.0<0.9.0 (contracts/PredictionMarketToken.sol#2)
+Version constraint ^0.8.20 contains known severe issues (https://solidity.readthedocs.io/en/latest/bugs.html)
+	- VerbatimInvalidDeduplication
+	- FullInlinerNonExpressionSplitArgumentEvaluationOrder
+	- MissingSideEffectsOnSelectorAccess.
+It is used by:
+	- ^0.8.20 (lib/openzeppelin-contracts/contracts/access/Ownable.sol#4)
+	- ^0.8.20 (lib/openzeppelin-contracts/contracts/token/ERC20/ERC20.sol#4)
+	- ^0.8.20 (lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol#4)
+	- ^0.8.20 (lib/openzeppelin-contracts/contracts/utils/Context.sol#4)
+	- ^0.8.20 (lib/openzeppelin-contracts/contracts/utils/Panic.sol#4)
+	- ^0.8.20 (lib/openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol#4)
+	- ^0.8.20 (lib/openzeppelin-contracts/contracts/utils/StorageSlot.sol#5)
+	- ^0.8.20 (lib/openzeppelin-contracts/contracts/utils/math/Math.sol#4)
+	- ^0.8.20 (lib/openzeppelin-contracts/contracts/utils/math/SafeCast.sol#5)
+Version constraint >=0.8.4 contains known severe issues (https://solidity.readthedocs.io/en/latest/bugs.html)
+	- FullInlinerNonExpressionSplitArgumentEvaluationOrder
+	- MissingSideEffectsOnSelectorAccess
+	- AbiReencodingHeadOverflowWithStaticArrayCleanup
+	- DirtyBytesArrayToStorage
+	- DataLocationChangeInInternalOverride
+	- NestedCalldataArrayAbiReencodingSizeValidation
+	- SignedImmutables.
+It is used by:
+	- >=0.8.4 (lib/openzeppelin-contracts/contracts/governance/utils/IVotes.sol#4)
+	- >=0.8.4 (lib/openzeppelin-contracts/contracts/interfaces/IERC5805.sol#4)
+	- >=0.8.4 (lib/openzeppelin-contracts/contracts/interfaces/draft-IERC6093.sol#4)
+Version constraint >=0.6.2 contains known severe issues (https://solidity.readthedocs.io/en/latest/bugs.html)
+	- MissingSideEffectsOnSelectorAccess
+	- AbiReencodingHeadOverflowWithStaticArrayCleanup
+	- DirtyBytesArrayToStorage
+	- NestedCalldataArrayAbiReencodingSizeValidation
+	- ABIDecodeTwoDimensionalArrayMemory
+	- KeccakCaching
+	- EmptyByteArrayCopy
+	- DynamicArrayCleanup
+	- MissingEscapingInFormatting
+	- ArraySliceDynamicallyEncodedBaseType
+	- ImplicitConstructorCallvalueCheck
+	- TupleAssignmentMultiStackSlotComponents
+	- MemoryArrayCreationOverflow.
+It is used by:
+	- >=0.6.2 (lib/openzeppelin-contracts/contracts/interfaces/IERC1363.sol#4)
+	- >=0.6.2 (lib/openzeppelin-contracts/contracts/interfaces/IERC20Metadata.sol#4)
+	- >=0.6.2 (lib/openzeppelin-contracts/contracts/token/ERC20/extensions/IERC20Metadata.sol#4)
+Version constraint >=0.4.16 contains known severe issues (https://solidity.readthedocs.io/en/latest/bugs.html)
+	- DirtyBytesArrayToStorage
+	- ABIDecodeTwoDimensionalArrayMemory
+	- KeccakCaching
+	- EmptyByteArrayCopy
+	- DynamicArrayCleanup
+	- ImplicitConstructorCallvalueCheck
+	- TupleAssignmentMultiStackSlotComponents
+	- MemoryArrayCreationOverflow
+	- privateCanBeOverridden
+	- SignedArrayStorageCopy
+	- ABIEncoderV2StorageArrayWithMultiSlotElement
+	- DynamicConstructorArgumentsClippedABIV2
+	- UninitializedFunctionPointerInConstructor_0.4.x
+	- IncorrectEventSignatureInLibraries_0.4.x
+	- ExpExponentCleanup
+	- NestedArrayFunctionCallDecoder
+	- ZeroFunctionSelector.
+It is used by:
+	- >=0.4.16 (lib/openzeppelin-contracts/contracts/interfaces/IERC165.sol#4)
+	- >=0.4.16 (lib/openzeppelin-contracts/contracts/interfaces/IERC20.sol#4)
+	- >=0.4.16 (lib/openzeppelin-contracts/contracts/interfaces/IERC6372.sol#4)
+	- >=0.4.16 (lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol#4)
+	- >=0.4.16 (lib/openzeppelin-contracts/contracts/utils/introspection/IERC165.sol#4)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#incorrect-versions-of-solidity
+INFO:Detectors:
+Detector: low-level-calls
+Low level call in StakeAsset._sendStake(address,uint256) (contracts/StakeAsset.sol#38-55):
+	- (success,None) = recipient.call{value: amount}() (contracts/StakeAsset.sol#41)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#low-level-calls
+INFO:Detectors:
+Detector: naming-convention
+Function IPredictionMarket.i_oracle() (contracts/IPredictionMarket.sol#87) is not in mixedCase
+Function IPredictionMarket.i_initialTokenValue() (contracts/IPredictionMarket.sol#88) is not in mixedCase
+Function IPredictionMarket.i_percentageLocked() (contracts/IPredictionMarket.sol#89) is not in mixedCase
+Function IPredictionMarket.i_initialYesProbability() (contracts/IPredictionMarket.sol#90) is not in mixedCase
+Function IPredictionMarket.i_yesToken() (contracts/IPredictionMarket.sol#91) is not in mixedCase
+Function IPredictionMarket.i_noToken() (contracts/IPredictionMarket.sol#92) is not in mixedCase
+Function IPredictionMarket.s_question() (contracts/IPredictionMarket.sol#93) is not in mixedCase
+Function IPredictionMarket.s_ethCollateral() (contracts/IPredictionMarket.sol#94) is not in mixedCase
+Function IPredictionMarket.s_lpTradingRevenue() (contracts/IPredictionMarket.sol#95) is not in mixedCase
+Function IPredictionMarket.s_winningToken() (contracts/IPredictionMarket.sol#96) is not in mixedCase
+Function IPredictionMarket.s_isReported() (contracts/IPredictionMarket.sol#97) is not in mixedCase
+Variable StakeAsset.i_stakeToken (contracts/StakeAsset.sol#17) is not in mixedCase
+Variable ThresholdPots.i_reader (contracts/ThresholdPots.sol#105) is not in mixedCase
+Function UpDownRounds.PAYOUT() (contracts/UpDownRounds.sol#139-141) is not in mixedCase
+Function UpDownRounds.MIN_SEED() (contracts/UpDownRounds.sol#150-152) is not in mixedCase
+Variable UpDownRounds.i_reader (contracts/UpDownRounds.sol#102) is not in mixedCase
+Variable BasePoolReader.i_pool (contracts/readings/BasePoolReader.sol#29) is not in mixedCase
+Variable BasePoolReader.i_baseToken (contracts/readings/BasePoolReader.sol#30) is not in mixedCase
+Variable BasePoolReader.i_quoteToken (contracts/readings/BasePoolReader.sol#31) is not in mixedCase
+Variable BasePoolReader.i_lookback (contracts/readings/BasePoolReader.sol#32) is not in mixedCase
+Variable BasePoolReader.i_baseUnit (contracts/readings/BasePoolReader.sol#33) is not in mixedCase
+Variable BasePoolReader.i_quoteUnit (contracts/readings/BasePoolReader.sol#34) is not in mixedCase
+Variable BasePoolReader.i_baseIsToken0 (contracts/readings/BasePoolReader.sol#35) is not in mixedCase
+Variable MarketCapReader.i_priceReader (contracts/readings/MarketCapReader.sol#29) is not in mixedCase
+Variable MarketCapReader.i_baseToken (contracts/readings/MarketCapReader.sol#30) is not in mixedCase
+Variable MarketCapReader.i_supplyMode (contracts/readings/MarketCapReader.sol#31) is not in mixedCase
+Variable MarketCapReader.i_fixedSupply (contracts/readings/MarketCapReader.sol#32) is not in mixedCase
+Function IERC6372.CLOCK_MODE() (lib/openzeppelin-contracts/contracts/interfaces/IERC6372.sol#18) is not in mixedCase
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#conformance-to-solidity-naming-conventions
+INFO:Detectors:
+Detector: too-many-digits
+TickMath.getSqrtRatioAtTick(int24) (contracts/readings/TickMath.sol#26-57) uses literals with too many digits:
+	- ratio = 0x100000000000000000000000000000000 (contracts/readings/TickMath.sol#30)
+Math.log2(uint256) (lib/openzeppelin-contracts/contracts/utils/math/Math.sol#619-658) uses literals with too many digits:
+	- r = r | byte(uint256,uint256)(x >> r,0x0000010102020202030303030303030300000000000000000000000000000000) (lib/openzeppelin-contracts/contracts/utils/math/Math.sol#656)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#too-many-digits
+INFO:Detectors:
+Detector: unused-state
+PredictionMarket.PRECISION (contracts/PredictionMarket.sol#38) is never used in PredictionMarket (contracts/PredictionMarket.sol#7-255)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#unused-state-variable
+INFO:Detectors:
+Detector: immutable-states
+PredictionMarketToken.liquidityProvider (contracts/PredictionMarketToken.sol#12) should be immutable 
+PredictionMarketToken.predictionMarket (contracts/PredictionMarketToken.sol#11) should be immutable 
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#state-variables-that-could-be-declared-immutable
+INFO:Slither:. analyzed (29 contracts with 102 detectors), 161 result(s) found

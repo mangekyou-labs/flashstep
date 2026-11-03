@@ -1,5 +1,7 @@
 # Pilot QA rehearsal: issue 15
 
+> **2026-11-03 update:** Owner deployed/funded on Base Sepolia. See the [configured preview, onchain evidence and remaining gates](qa-15/sepolia-update.md). The initial report below records the earlier no-Campaign state.
+
 Date: 2026-11-02. Source: `ff6a588e321b3ab2eaa59e5151329c2ea0a1d77a` (main after PR 29).
 
 **Decision: not ready to pilot.** The new frontend preview is deployed; a Base Sepolia Campaign has not been deployed. The owner confirmed this during QA. Contract deployment, verification, funded live Rounds, live bot operation, target-chain wallet tests and real-phone wallet tests remain outstanding. Local fixtures do not satisfy those acceptance criteria.

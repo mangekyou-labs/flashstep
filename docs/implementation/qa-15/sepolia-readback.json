@@ -1,0 +1,35 @@
+{
+  "checkedAt": "2026-11-03T11:01:23.067Z",
+  "chainId": 84532,
+  "block": 53909074,
+  "contracts": [
+    {
+      "name": "UpDownRounds",
+      "address": "0xB5087655A30e42b5C2DB89078e0490221E91D33e",
+      "owner": "0xeD37FD0d6F0f69236E7472B36796e133D20EcC32",
+      "token": "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+      "reader": "0x8De98D34Fa14867a9e7EbC3b59Ee25992B5B7D94",
+      "funding": "40000",
+      "reserved": "20000",
+      "held": "60000",
+      "currentRound": "8",
+      "round1Result": "0",
+      "cutoff": "1793703615",
+      "windowEnd": "1793703645"
+    },
+    {
+      "name": "ThresholdPots",
+      "address": "0xe80Cd5E09C4949639bb6D9dBf5E36E8Ac3130ebe",
+      "owner": "0xeD37FD0d6F0f69236E7472B36796e133D20EcC32",
+      "token": "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+      "reader": "0x8De98D34Fa14867a9e7EbC3b59Ee25992B5B7D94",
+      "funding": "18000",
+      "reserved": "2000",
+      "held": "20000",
+      "currentRound": "8",
+      "round1Result": "0",
+      "cutoff": "1793703617",
+      "windowEnd": "1793703647"
+    }
+  ]
+}

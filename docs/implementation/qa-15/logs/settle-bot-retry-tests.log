@@ -1,0 +1,36 @@
+✔ lagging providers cannot reallocate unresolved local nonces (0.342291ms)
+✔ expired retries use fresh timestamps and never broadcast (0.402917ms)
+✔ each simultaneous capture rechecks the chain before sending (0.438625ms)
+✔ ambiguous sends reserve their nonce without logging transport details (0.234625ms)
+✔ definite rejection releases the nonce (0.13425ms)
+✔ legacy captures still broadcast one two-second block ahead (0.113209ms)
+✔ scheduler pauses remaining captures after uncertain acceptance (0.665083ms)
+✔ preparation starts well before the boundary and sends on the first ready head (0.502083ms)
+✔ expired lower captures pause allocations while higher nonces remain pending (0.284416ms)
+✔ a rejected retry cannot abandon a nonce with higher queued transactions (0.225084ms)
+✔ capture group reserves every nonce before one submission request (1.521084ms)
+✔ a rejected lower nonce with an accepted higher nonce pauses the entire group (0.348709ms)
+✔ transport failure conservatively retains all capture nonces (0.222333ms)
+✔ missing member conservatively retains all capture nonces (0.227334ms)
+✔ mismatched hash conservatively retains all capture nonces (0.334459ms)
+✔ late head with a measured round trip leaves insufficient submission margin (0.212292ms)
+✔ a late head with a measured live send delay is skipped, not sent (0.085417ms)
+✔ the last pre-boundary head with the same measured delay still sends (0.325541ms)
+✔ a pre-window head never sends, even when predicted receipt is in-window (0.060833ms)
+✔ a pre-window head waits when predicted inclusion is still early (0.0805ms)
+✔ individual native retry also rejects insufficient measured margin (0.140958ms)
+✔ last native block before cutoff can target the first block of the correct second (1.027ms)
+✔ last native block of cutoff second cannot target that second anymore (0.063542ms)
+✔ native phase earlier than the final pre-boundary block cannot send early (0.052208ms)
+✔ CLI rejects duplicate ids before any transaction submission (229.394208ms)
+✔ CLI rejects missing member before any transaction submission (182.867459ms)
+✔ CLI rejects foreign id before any transaction submission (181.8095ms)
+✔ CLI rejects object envelope before any transaction submission (190.290917ms)
+ℹ tests 28
+ℹ suites 0
+ℹ pass 28
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1113.124042

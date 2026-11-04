@@ -1,5 +1,7 @@
-import { captureState } from "./captureWindow.js";
-import { nextAvailableNonce } from "./transactionSender.js";
+import {
+  captureAction,
+  nextAvailableNonce,
+} from "./transactionSender.js";
 
 // Native sub-second blocks still expose whole-second EVM timestamps. Prepare
 // ahead, then target inclusion in the exact second; never move a boundary.
@@ -30,7 +32,18 @@ export function createBoundaryScheduler({
 }) {
   let head;
   let observedAt;
+  let warmedBoundary = null;
+  let warmedHeadMs = null;
   const attempted = new Map();
+  // Hydration batches cost seconds on a measured-latency provider. Finish
+  // them well before the window so the hold loop can send on the first ready
+  // head instead of discovering a late one after preparation.
+  const PREPARE_LEAD_SECONDS = 12;
+  const FINAL_LEAD_SECONDS = 2;
+  const estimatedNow = () =>
+    head.timestampMs != null
+      ? Number(head.timestampMs) / 1000 + (Date.now() - observedAt) / 1000
+      : Number(head.timestamp) + (Date.now() - observedAt) / 1000;
   const key = (c, id, boundary) => `${c.address}:${id}:${boundary}`;
   function targets() {
     for (const [id, boundary] of attempted)
@@ -74,9 +87,17 @@ export function createBoundaryScheduler({
       if (!first) return;
       // This estimate only preempts background work. Submission always uses a
       // fresh chain timestamp, never the host clock or an extrapolated price.
-      const estimated =
-        Number(head.timestamp) + (Date.now() - observedAt) / 1000;
-      if (estimated < first.boundary - 3) return;
+      if (estimatedNow() < first.boundary - PREPARE_LEAD_SECONDS) return;
+      // Skip re-warming only when the caller's own block polling has moved
+      // the head since preparation; otherwise fall through and advance it.
+      const headMs = Number(head.timestampMs ?? Number(head.timestamp) * 1000);
+      if (
+        warmedBoundary === first.boundary &&
+        warmedHeadMs != null &&
+        headMs > warmedHeadMs &&
+        estimatedNow() < first.boundary - FINAL_LEAD_SECONDS
+      )
+        return;
       await checkCaptureReceipts();
       if (!isRunning()) return;
       // A restart may have cached one contract before background discovery
@@ -100,7 +121,13 @@ export function createBoundaryScheduler({
       );
       await rpc("eth_getBlockByNumber", ["latest", false]);
       const work = targets();
-      if (!work.length || Number(head.timestamp) < work[0].boundary - 3) return;
+      if (!work.length) return;
+      warmedBoundary = work[0].boundary;
+      warmedHeadMs = Number(head.timestampMs ?? Number(head.timestamp) * 1000);
+      // Preparation is done; leave background work alone until the final
+      // account/sign/hold stage. Signing still happens there, so intervening
+      // settlements cannot strand this group behind a stale nonce.
+      if (estimatedNow() < work[0].boundary - FINAL_LEAD_SECONDS) return;
       const boundary = work[0].boundary;
       const group = work.filter((w) => w.boundary === boundary);
       const account = accountSnapshot
@@ -154,15 +181,22 @@ export function createBoundaryScheduler({
       // must not consume the one-second inclusion window.
       while (isRunning()) {
         await rpc("eth_getBlockByNumber", ["latest", false]);
-        const state = captureState(head, boundary, 200);
-        if (state === "expired" || state === "invalid") {
+        const action = captureAction(head, boundary);
+        if (action === "expired" || action === "invalid" || action === "missed") {
           for (const { c, id } of prepared) {
             attempted.set(key(c, id, boundary), boundary);
-            log("missed_boundary", { contract: c.name, round: id, boundary });
+            log("missed_boundary", {
+              contract: c.name,
+              round: id,
+              boundary,
+              ...(action === "missed"
+                ? { reason: "insufficient_margin" }
+                : {}),
+            });
           }
           return;
         }
-        if (state === "ready") {
+        if (action === "ready") {
           if (broadcastGroup) {
             for (const { c, id } of prepared)
               attempted.set(key(c, id, boundary), boundary);

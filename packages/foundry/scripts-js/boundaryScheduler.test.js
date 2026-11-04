@@ -187,6 +187,89 @@ test("scheduler pauses remaining captures after uncertain acceptance", async () 
   assert.equal([...pending.values()][0].uncertain, true);
 });
 
+test("preparation starts well before the boundary and sends on the first ready head", async () => {
+  const r = {
+    result: 0,
+    cutoff: ethers.BigNumber.from(1000),
+    windowEnd: ethers.BigNumber.from(1100),
+    startBlock: ethers.constants.Zero,
+    endBlock: ethers.constants.Zero,
+  };
+  const contract = {
+    name: "UpDownRounds",
+    address: "0x01",
+    rounds: new Set(["1"]),
+    roundData: new Map([["1", { ...r }]]),
+    iface: { encodeFunctionData: () => "0x01" },
+  };
+  let scheduler;
+  let ms = 990000;
+  let currentRoundCalls = 0;
+  const broadcasts = [];
+  const logs = [];
+  const rpc = async (method) => {
+    if (method === "eth_getBlockByNumber") {
+      ms += 200;
+      const block = {
+        timestamp: Math.floor(ms / 1000),
+        timestampMs: ms,
+        rpcMs: 10,
+      };
+      scheduler.observe(block);
+      return block;
+    }
+    if (method === "eth_gasPrice") return "0x1";
+    if (method === "eth_getTransactionCount") return "0x0";
+    throw new Error(`unexpected ${method}`);
+  };
+  scheduler = createBoundaryScheduler({
+    contracts: [contract],
+    rpc,
+    call: async (_c, method) => {
+      if (method === "currentRound") currentRoundCalls++;
+      return [method === "currentRound" ? ethers.constants.One : r];
+    },
+    chainId: 84532,
+    gasLimit: 100000,
+    pending: new Map(),
+    log: (event, fields) => logs.push({ event, ...fields }),
+    sleep: async () => {},
+    isRunning: () => true,
+    poll: 1,
+    wallet: {
+      address: "0x03",
+      signTransaction: async ({ nonce }) => `0x0${nonce + 1}`,
+    },
+    broadcast: async () => true,
+    broadcastGroup: async (prepared, boundary, head) => {
+      broadcasts.push({ prepared, boundary, head });
+      return true;
+    },
+  });
+  scheduler.observe({ timestamp: 990, timestampMs: 990000, rpcMs: 10 });
+  await scheduler.service();
+  assert.ok(
+    currentRoundCalls > 0,
+    "schedules must be hydrated before the final seconds"
+  );
+  for (let step = 991000; step < 998000; step += 1000) {
+    ms = step;
+    scheduler.observe({
+      timestamp: Math.floor(step / 1000),
+      timestampMs: step,
+      rpcMs: 10,
+    });
+    await scheduler.service();
+  }
+  ms = 998000;
+  scheduler.observe({ timestamp: 998, timestampMs: 998000, rpcMs: 10 });
+  await scheduler.service();
+  assert.equal(broadcasts.length, 1);
+  assert.equal(broadcasts[0].boundary, 1000);
+  assert.equal(broadcasts[0].head.timestampMs, 999800);
+  assert.ok(logs.some((l) => l.event === "capture_prepared"));
+});
+
 test("expired lower captures pause allocations while higher nonces remain pending", async () => {
   const pending = new Map([
     [key, { nonce: 0, hash: "0x01" }],

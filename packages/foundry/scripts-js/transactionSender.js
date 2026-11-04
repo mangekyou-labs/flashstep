@@ -10,14 +10,27 @@ export function nextAvailableNonce(nodeNonce, pending) {
   );
 }
 
-function hasCaptureMargin(head, boundary) {
+// Inclusion lags the send acknowledgement: live captures acknowledged by
+// boundary+663ms and +793ms landed at +800ms and +1000ms. Budget a half
+// block of jitter on top of predicted receipt; this remains a heuristic,
+// not an inclusion guarantee.
+const INCLUSION_SLACK_MS = 100;
+let lastCaptureSendMs = null;
+// Never send before the window opens: inclusion can follow the send
+// acknowledgement almost immediately, so a pre-window send can land in the
+// previous second and revert. Send only on a ready head whose predicted
+// receipt still leaves jitter room before the last valid block.
+export function captureAction(head, boundary, sendDelayMs) {
+  const phase = captureState(head, boundary, 200);
+  if (phase !== "ready") return phase;
+  if (head.timestampMs == null) return "ready";
   const rpcMs = Number(head.rpcMs ?? 0);
-  return (
-    Number.isFinite(rpcMs) &&
-    rpcMs >= 0 &&
-    (head.timestampMs == null ||
-      Number(head.timestampMs) + 2 * rpcMs < boundary * 1000 + 800)
-  );
+  if (!Number.isFinite(rpcMs) || rpcMs < 0) return "invalid";
+  const sendMs = sendDelayMs ?? lastCaptureSendMs ?? rpcMs;
+  if (!Number.isFinite(sendMs) || sendMs < 0) return "invalid";
+  const receipt = Number(head.timestampMs) + rpcMs + sendMs;
+  if (receipt + INCLUSION_SLACK_MS >= boundary * 1000 + 800) return "missed";
+  return "ready";
 }
 
 export async function broadcastTransaction({
@@ -31,6 +44,7 @@ export async function broadcastTransaction({
   rpc,
   pending,
   log,
+  sendDelayMs,
 }) {
   const key = `${c.address}:${id}:${action}:${boundary ?? ""}`;
   // Caller holds the wallet critical section across this check and send. A
@@ -38,10 +52,11 @@ export async function broadcastTransaction({
   let latest;
   if (boundary) {
     latest = await rpc("eth_getBlockByNumber", ["latest", false]);
-    if (
-      captureState(latest, boundary, blockTimeMs) !== "ready" ||
-      (blockTimeMs === 200 && !hasCaptureMargin(latest, boundary))
-    ) {
+    const action =
+      blockTimeMs === 200
+        ? captureAction(latest, boundary, sendDelayMs)
+        : captureState(latest, boundary, blockTimeMs);
+    if (action !== "ready") {
       const tracked = pending.get(key);
       if (tracked && [...pending.values()].some((tx) => tx.nonce > nonce)) {
         // Do not abandon a missing lower nonce while accepted higher nonces
@@ -99,6 +114,7 @@ export async function broadcastTransaction({
     });
     return false;
   }
+  if (boundary) lastCaptureSendMs = Date.now() - started;
   log("submitted", {
     contract: c.name,
     round: id,
@@ -127,18 +143,18 @@ export async function broadcastCaptureGroup({
   rpcBatch,
   pending,
   log,
+  sendDelayMs,
 }) {
-  const phase = captureState(head, boundary, 200);
-  // Reject a head whose remaining phase cannot cover a conservative read-age
-  // plus submission budget. This estimate is not an inclusion guarantee.
-  const margin = hasCaptureMargin(head, boundary);
-  if (phase !== "ready" || !margin) {
+  // Reject a head whose predicted receipt cannot land inside the boundary
+  // second. This estimate is not an inclusion guarantee.
+  const action = captureAction(head, boundary, sendDelayMs);
+  if (action !== "ready") {
     for (const { c, id } of prepared)
       log("missed_boundary", {
         contract: c.name,
         round: id,
         boundary,
-        reason: phase === "ready" ? "insufficient_margin" : phase,
+        reason: action === "missed" ? "insufficient_margin" : action,
       });
     return false;
   }
@@ -171,6 +187,7 @@ export async function broadcastCaptureGroup({
         params: [tx.raw],
       }))
     );
+    lastCaptureSendMs = Date.now() - started;
     if (!Array.isArray(replies) || replies.length !== entries.length)
       throw new Error("Incomplete capture batch");
     for (const [index, reply] of replies.entries())

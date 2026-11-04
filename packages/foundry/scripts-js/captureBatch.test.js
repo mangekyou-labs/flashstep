@@ -109,6 +109,62 @@ test("late head with a measured round trip leaves insufficient submission margin
   assert.equal(result.logs[0].reason, "insufficient_margin");
 });
 
+test("a late head with a measured live send delay is skipped, not sent", async () => {
+  let sends = 0;
+  const result = await run(
+    async () => {
+      sends++;
+    },
+    {
+      head: { timestamp: 1000, timestampMs: 1000200, rpcMs: 244 },
+      sendDelayMs: 349,
+    }
+  );
+  assert.equal(result.sent, false);
+  assert.equal(sends, 0);
+  assert.equal(result.pending.size, 0);
+  assert.equal(result.logs[0].reason, "insufficient_margin");
+});
+test("the last pre-boundary head with the same measured delay still sends", async () => {
+  const result = await run(
+    async (calls) => calls.map((_, index) => ({ result: hash(index) })),
+    { sendDelayMs: 349 }
+  );
+  assert.equal(result.sent, true);
+  assert.equal(result.logs.filter((l) => l.event === "submitted").length, 3);
+});
+
+test("a pre-window head never sends, even when predicted receipt is in-window", async () => {
+  let sends = 0;
+  const result = await run(
+    async () => {
+      sends++;
+    },
+    {
+      head: { timestamp: 999, timestampMs: 999600, rpcMs: 300 },
+      sendDelayMs: 350,
+    }
+  );
+  assert.equal(result.sent, false);
+  assert.equal(sends, 0);
+  assert.equal(result.logs[0].reason, "early");
+});
+test("a pre-window head waits when predicted inclusion is still early", async () => {
+  let sends = 0;
+  const result = await run(
+    async () => {
+      sends++;
+    },
+    {
+      head: { timestamp: 999, timestampMs: 999600, rpcMs: 60 },
+      sendDelayMs: 60,
+    }
+  );
+  assert.equal(result.sent, false);
+  assert.equal(sends, 0);
+  assert.equal(result.logs[0].reason, "early");
+});
+
 test("individual native retry also rejects insufficient measured margin", async () => {
   let sends = 0;
   const result = await broadcastTransaction({

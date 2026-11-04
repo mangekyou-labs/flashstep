@@ -10,6 +10,9 @@ import { ethers } from "ethers";
 const latency = Number(process.env.SMOKE_RPC_LATENCY_MS ?? 60);
 if (!Number.isSafeInteger(latency) || latency < 0 || latency > 2000)
   throw new Error("Invalid SMOKE_RPC_LATENCY_MS");
+const sendHold = Number(process.env.SMOKE_SEND_HOLD_MS ?? 0);
+if (!Number.isSafeInteger(sendHold) || sendHold < 0 || sendHold > 5000)
+  throw new Error("Invalid SMOKE_SEND_HOLD_MS");
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const port = 19000 + Math.floor(Math.random() * 1000);
 const url = `http://127.0.0.1:${port}`;
@@ -31,6 +34,15 @@ const proxy = createServer(async (req, res) => {
   for await (const chunk of req) body += chunk;
   try {
     const request = JSON.parse(body);
+    if (
+      sendHold > 0 &&
+      (Array.isArray(request) ? request : [request]).some(
+        (r) => r.method === "eth_sendRawTransaction"
+      )
+    )
+      // Model provider/sequencer lag between the bot's send decision and
+      // inclusion: the signed capture reaches the chain sendHold later.
+      await sleep(sendHold);
     if (
       late &&
       !delayed &&

@@ -1,8 +1,8 @@
 # Live bot rehearsal — 2026-11-04
 
-**Verdict: live acceptance pending; normal public-chain settlement has not passed.** The owner started the bot using a dedicated gas-funded wallet. Its submitted Round 1 transactions succeeded, but both emitted `Refunded`, not a normal price-based outcome. Public receipt/result readback is in [live-bot-readback.json](live-bot-readback.json). No agent signed or submitted transactions.
+**Verdict: live acceptance partly passed; Threshold still needs several settled rounds.** The owner started the bot using a dedicated gas-funded wallet. Its submitted Round 1 transactions succeeded, but both emitted `Refunded`, not a normal price-based outcome. Public receipt/result readback is in [live-bot-readback.json](live-bot-readback.json). No agent signed or submitted transactions. Later runs settled five UpDown rounds as Tie and one Threshold round as Yes; see the final section.
 
-> Latest runtime revision: batched preparation/submission passes native restart and three-Round overlap at 300ms simulated RPC latency. The previous failed 300ms result below is historical. The owner may run one supervised rehearsal with the updated launcher; stop and inspect any `capture_failed` or `nonce_gap`. No contract redeployment is needed.
+> Latest runtime revision: early hydration (12s lead, final sign/hold at 2s) plus a learned send-delay margin passes native restart and three-Round overlap at 300ms simulated RPC latency. The owner may run one supervised rehearsal with the updated launcher; stop and inspect any `capture_failed` or `nonce_gap`. No contract redeployment is needed.
 
 | Contract | Round 1 transaction | Stored result | Event |
 | --- | --- | --- | --- |
@@ -58,3 +58,34 @@ The runtime now batches schedule/account preparation, Round hydration and simult
 Final validation is recorded in [focused tests](logs/settle-bot-batch-tests.log), [legacy](logs/settle-bot-batch-legacy.log), [native60ms](logs/settle-bot-batch-native.log), [late fail-stop](logs/settle-bot-batch-late.log), [native300ms restart](logs/settle-bot-batch-300ms.log) and [native300ms overlap](logs/settle-bot-batch-300ms-overlap.log): native restart and three-Round overlap at300ms, legacy scheduling, native60ms and deliberately late fail-stop, plus23 focused regressions. The 300ms fixture keeps the original capture deadlines and allows bounded additional background settlement drain after those deadlines. Independent review identified a retry-margin bypass; it was fixed and covered by a regression. Only public local Anvil keys were used.
 
 For one owner-operated rehearsal, run `bash /private/tmp/flashstep-qa-15/run-sepolia-qa-bot.sh`. The local launcher now remembers newly entered values in macOS Keychain after validation; existing environment values are honored. Agents have not read or written real Keychain credentials. Live successful captures and normal settlements on both contracts remain required; issues #15 and #39 remain open.
+
+## Funded rehearsal and the remaining one-block miss
+
+The owner funded UpDownRounds with 0.2 test USDC. The `approve` transaction [0xef9ab6f…a159](https://sepolia.basescan.org/tx/0xef9ab6f8e48d540de0f2dd74ea7e9e6593c8997e115e029314065710581aa159) succeeded at block54217461; readback then showed `fundingBalance` 200000 with the allowance consumed, so no further top-up is due. ThresholdPots retains 18000 available.
+
+The next supervised run produced one success and one failure stop. UpDown 9440 cutoff [0x7359bc1…f56ec](https://sepolia.basescan.org/tx/0x7359bc1b1742babd12e6fa1552ce9e126a8e414b4b62945d8bbdb403645f56ec) sent on head boundary+0ms (356ms read, 307ms broadcast) and was included at boundary+800ms, the last valid native block. UpDown 9441 was skipped with `insufficient_margin`. UpDown 9442 cutoff [0xe76a10d…f56ec](https://sepolia.basescan.org/tx/0xe76a10dc0af9364269a8ce4b541d2f4d59e60f3e8ef17f53dd4f14f3ad1e3f2d) sent on head boundary+200ms (244ms read, 349ms broadcast, predicted receipt +793ms), missed the +800ms block and was included at boundary+1000ms in block54380786, reverting `OutsideBoundary`. The failure stop worked; no normal settlement resulted. Round 9440 now reads Refunded with its end capture never attempted.
+
+Diagnosis: preparation batches and polling at ~300ms per round trip meant the first ready head could be as late as boundary+200ms, and the old margin (`head + 2×read`) modelled neither the measured send duration nor inclusion jitter after acknowledgement (acknowledged +663ms landed at +800ms; acknowledged +793ms landed at +1000ms). A pre-window send was evaluated and rejected: the local fixture shows inclusion can follow acknowledgement almost immediately, so sending early can land in the previous second and revert.
+
+Fix: hydration now starts 12 seconds before each boundary with signing deferred to a final stage 2 seconds before, so the hold loop can send on the first ready head; re-warming is skipped only after external block polling advances the head. The send decision stays inside the ready window `[B−200ms, B+800ms)` and now requires `head + read + learned send + 100ms < B+800ms`, learning the send duration from each capture broadcast. Predicted-late heads are skipped (`insufficient_margin`) rather than sent to revert. Five new regressions cover the live B+200 skip, the B−200 send, pre-window refusal, and early preparation; all 28 focused tests pass. Evidence: [focused tests](logs/settle-bot-retry-tests.log), [native60ms](logs/settle-bot-retry-native.log), [late fail-stop](logs/settle-bot-retry-late.log), [native300ms restart](logs/settle-bot-retry-300ms.log) and [native300ms overlap](logs/settle-bot-retry-300ms-overlap.log), plus legacy smoke. The margin remains a heuristic; variable provider/sequencer jitter can still miss or revert.
+
+Next: one more supervised owner rehearsal with `bash /private/tmp/flashstep-qa-15/run-sepolia-qa-bot.sh`. Several normal settlements on both contracts, including Tie/Unmatched, are still required; issues #15 and #39 remain open.
+
+## First live settles — owner-run readback recorded
+
+The 0.2 test USDC top-up was consumed by ten first-touch rounds in one run, which stopped at UpDown 10444 with `InsufficientFunding`; no settle had yet recycled surplus. After a further owner top-up of both Campaigns, the owner reran the bot. The run sent at roughly 60% of boundaries, converting predicted-late heads into `insufficient_margin` skips. Confirmed `settle` transactions: UpDown 10508, 10509, 10510, 10512, 10513, 10514, 10515, 10516 and Threshold 10507.
+
+Stored results below come from an owner-run read-only script against the public RPC (the agent's shell was unavailable, so this is single-source owner evidence, internally consistent with the launcher log):
+
+| Round | Stored result | Notes |
+| --- | --- | --- |
+| UpDown 10509, 10512, 10513, 10515, 10516 | Tie | Start and end Reading prices identical (`2431619644829711020225276722962783928773`); the idle testnet pool TWAP did not move |
+| UpDown 10508, 10510, 10514 | Refunded | One boundary capture missing, as logged |
+| Threshold 10507 | Yes | End Reading above the 2,000 threshold; opening stakes 1000/1000, no Player stakes |
+| UpDown 10438, 10440, 10443 | None (awaiting) | Both captures present; settleable by the bot on a later restart |
+
+Funding after the run: UpDown 1560000 available / 620000 reserved; Threshold 1014000 / 6000.
+
+The run stopped on UpDown 10544: the earliest head (boundary−200ms) saw a latency spike (430ms read, 419ms broadcast) and inclusion missed the final +800ms block, reverting `OutsideBoundary`. One revert in about 35 submissions; the guarded margin cannot guarantee inclusion under provider/sequencer spikes.
+
+Assessment against #15: UpDown has several bot-settled rounds including Ties; Threshold has one normal Yes settlement and still needs several settled rounds. Player stake/claim evidence and the hosted Playwright pass remain outstanding. Issues #15 and #39 remain open.

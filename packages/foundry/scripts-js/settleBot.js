@@ -1,5 +1,10 @@
 import { readFile } from "node:fs/promises";
 import { ethers } from "ethers";
+import { createBoundaryScheduler } from "./boundaryScheduler.js";
+import {
+  broadcastTransaction,
+  nextAvailableNonce,
+} from "./transactionSender.js";
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const log = (event, fields = {}) =>
@@ -53,6 +58,7 @@ async function main() {
       address,
       iface: new ethers.utils.Interface(abi),
       rounds: new Set(),
+      roundData: new Map(),
       history: new Set(),
       cursor: fromBlock,
       recentCursor: undefined,
@@ -60,7 +66,19 @@ async function main() {
   }
   let nextRequest = 0;
   let requestId = 0;
+  let boundaryScheduler;
+  let servicingBoundary = false;
   async function rpc(method, params) {
+    // Check deadlines between every background request, rather than waiting
+    // for a potentially multi-second discovery/settlement pass to complete.
+    if (boundaryScheduler && !servicingBoundary) {
+      servicingBoundary = true;
+      try {
+        await boundaryScheduler.service();
+      } finally {
+        servicingBoundary = false;
+      }
+    }
     await sleep(Math.max(0, nextRequest - Date.now()));
     nextRequest = Date.now() + interval;
     let response;
@@ -94,15 +112,20 @@ async function main() {
       );
       throw error;
     }
+    if (method === "eth_getBlockByNumber" && params[0] === "latest")
+      boundaryScheduler?.observe(body.result);
     return body.result;
   }
   const hex = ethers.utils.hexValue;
   async function call(c, method, args = []) {
     const data = c.iface.encodeFunctionData(method, args);
-    return c.iface.decodeFunctionResult(
+    const result = c.iface.decodeFunctionResult(
       method,
       await rpc("eth_call", [{ to: c.address, data }, "latest"])
     );
+    if (method === "round" && c.rounds.has(String(args[0])))
+      c.roundData.set(String(args[0]), result[0]);
+    return result;
   }
   const chainId = Number(await rpc("eth_chainId", []));
   for (const c of contracts) {
@@ -110,21 +133,54 @@ async function main() {
       throw new Error(`No ${c.name} contract at configured address`);
   }
   const pending = new Map();
+  const initialHead = await rpc("eth_getBlockByNumber", ["latest", false]);
+  const parent = await rpc("eth_getBlockByNumber", [
+    hex(Math.max(0, Number(initialHead.number) - 1)),
+    false,
+  ]);
+  const observedStep = Number(initialHead.timestamp) - Number(parent.timestamp);
+  const blockTimeMs = integer(
+    "SETTLE_BLOCK_TIME_MS",
+    observedStep < 2 ? 200 : 2000,
+    1
+  );
+  if (![200, 2000].includes(blockTimeMs))
+    throw new Error("Invalid SETTLE_BLOCK_TIME_MS");
+  if (blockTimeMs === 200) {
+    boundaryScheduler = createBoundaryScheduler({
+      contracts,
+      rpc,
+      call,
+      wallet,
+      chainId,
+      gasLimit,
+      pending,
+      broadcast,
+      log,
+      sleep,
+      isRunning: () => running,
+      poll,
+    });
+    boundaryScheduler.observe(initialHead);
+  }
   let lastBlock;
   log("ready", {
     sender: wallet.address,
     chainId,
     requestIntervalMs: interval,
     pollMs: poll,
+    blockTimeMs,
   });
 
   async function send(c, id, action, gasPrice, boundary) {
+    if ([...pending.values()].some((tx) => tx.uncertain)) return;
     const key = `${c.address}:${id}:${action}:${boundary ?? ""}`;
     if (pending.has(key)) return;
     // A fresh result check avoids spending gas when another caller already settled.
     const [round] = await call(c, "round", [id]);
     if (round.result !== 0) {
       c.rounds.delete(id);
+      c.roundData.delete(id);
       return;
     }
     if (boundary) {
@@ -155,43 +211,51 @@ async function main() {
         return; // Too early, missing Reading, or another caller won the race; retry next block.
       }
     }
-    const nonce = Number(
-      await rpc("eth_getTransactionCount", [wallet.address, "pending"])
-    );
-    const raw = await wallet.signTransaction({
-      to: c.address,
-      data,
-      nonce,
-      chainId,
-      gasLimit,
-      gasPrice,
-    });
-    // Track the deterministic hash before broadcast: a timeout may still mean accepted.
-    const hash = ethers.utils.keccak256(raw);
-    pending.set(key, {
-      hash,
-      raw,
-      c,
-      id,
-      action,
-      nonce,
-      boundary,
-      absentBlocks: 0,
-    });
+    // Nonce allocation through broadcast is one critical section: a capture
+    // must not preempt an already-signed settlement and reuse its nonce.
+    const previous = servicingBoundary;
+    servicingBoundary = true;
     try {
-      await rpc("eth_sendRawTransaction", [raw]);
-    } catch (error) {
-      if (error.rejected) pending.delete(key);
-      log(error.rejected ? "broadcast_rejected" : "broadcast_uncertain", {
-        contract: c.name,
-        round: id,
-        action,
-        hash,
-        rpcCode: error.rpcCode,
+      if ([...pending.values()].some((tx) => tx.uncertain)) return;
+      const nonce = nextAvailableNonce(
+        Number(
+          await rpc("eth_getTransactionCount", [wallet.address, "pending"])
+        ),
+        pending
+      );
+      const raw = await wallet.signTransaction({
+        to: c.address,
+        data,
+        nonce,
+        chainId,
+        gasLimit,
+        gasPrice,
       });
-      return;
+      await broadcast(c, id, action, boundary, nonce, raw);
+    } finally {
+      servicingBoundary = previous;
     }
-    log("submitted", { contract: c.name, round: id, action, hash });
+  }
+
+  async function broadcast(c, id, action, boundary, nonce, raw) {
+    const previous = servicingBoundary;
+    servicingBoundary = true;
+    try {
+      return await broadcastTransaction({
+        c,
+        id,
+        action,
+        boundary,
+        nonce,
+        raw,
+        blockTimeMs,
+        rpc,
+        pending,
+        log,
+      });
+    } finally {
+      servicingBoundary = previous;
+    }
   }
 
   while (running) {
@@ -222,26 +286,20 @@ async function main() {
           const transaction = await rpc("eth_getTransactionByHash", [tx.hash]);
           if (transaction) {
             tx.absentBlocks = 0;
+            tx.uncertain = false;
             continue;
           }
           if (++tx.absentBlocks < 3) continue;
           // Reuse the same signed payload/hash and nonce after ambiguous transport
           // failures. Never rebroadcast an expired exact-boundary capture.
-          if (tx.boundary && Number(block.timestamp) + 2 !== tx.boundary) {
-            pending.delete(key);
-            log("capture_not_found", {
-              contract: tx.c.name,
-              round: tx.id,
-              hash: tx.hash,
-            });
-          } else {
-            try {
-              await rpc("eth_sendRawTransaction", [tx.raw]);
-            } catch (error) {
-              if (error.rejected) pending.delete(key);
-            }
-            tx.absentBlocks = 0;
-          }
+          await broadcast(
+            tx.c,
+            tx.id,
+            tx.action,
+            tx.boundary,
+            tx.nonce,
+            tx.raw
+          );
         }
       }
       // Serialize this wallet; on restart leave pre-existing pending transactions time to land.
@@ -258,16 +316,32 @@ async function main() {
       const now = Number(block.timestamp);
       const height = Number(block.number);
       const gasPrice = await rpc("eth_gasPrice", []);
+      // Recover at least 64 seconds of events regardless of block cadence.
+      // Exponential timestamp search also handles a node resuming after downtime.
+      let recentStart = Math.max(fromBlock, height - 32);
+      if (
+        contracts.some(
+          (c) => c.recentCursor === undefined || c.recentCursor < recentStart
+        )
+      ) {
+        let distance = 32;
+        while (recentStart > fromBlock) {
+          const older = await rpc("eth_getBlockByNumber", [
+            hex(recentStart),
+            false,
+          ]);
+          if (Number(older.timestamp) <= now - 64) break;
+          distance *= 2;
+          recentStart = Math.max(fromBlock, height - distance);
+        }
+      }
       // Fresh schedule discovery takes precedence over replaying historical logs.
       for (const c of contracts) {
         const [current] = await call(c, "currentRound");
         if (!current.isZero()) c.rounds.add(current.toString());
       }
       for (const c of contracts) {
-        // At most 30s trading + 30s Window: the last 32 two-second blocks
-        // include every still-capturable seeded Round, even on a fresh restart.
-        // Replay these before captures; old escrow recovery has its own cursor.
-        const start = Math.max(fromBlock, height - 32, c.recentCursor ?? 0);
+        const start = Math.max(recentStart, c.recentCursor ?? recentStart);
         for (let cursor = start; cursor <= height; cursor += logRange) {
           const end = Math.min(height, cursor + logRange - 1);
           const events = await rpc("eth_getLogs", [
@@ -293,17 +367,21 @@ async function main() {
           const [r] = await call(c, "round", [id]);
           if (r.result !== 0) {
             c.rounds.delete(id);
+            c.roundData.delete(id);
             continue;
           }
           const cutoff = r.cutoff.toNumber();
           const end = r.windowEnd.toNumber();
-          // Contracts pin exact 2-second boundaries. Submit one block ahead;
-          // no latest-price substitution if inclusion misses that block.
+          // Legacy cadence submits one block ahead. Native captures use the
+          // priority scheduler; neither substitutes a later Reading.
           const startDue =
             c.name === "UpDownRounds" &&
             r.startBlock.isZero() &&
             cutoff === now + 2;
-          if (startDue || (r.endBlock.isZero() && end === now + 2))
+          if (
+            blockTimeMs === 2000 &&
+            (startDue || (r.endBlock.isZero() && end === now + 2))
+          )
             await send(
               c,
               id,
@@ -314,6 +392,7 @@ async function main() {
           if (end <= now) settlements.push([c, id]);
           if (end + 60 <= now) {
             c.rounds.delete(id);
+            c.roundData.delete(id);
             c.history.add(id);
           }
         }

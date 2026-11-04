@@ -1,6 +1,6 @@
 # Base Sepolia deployment update — 2026-11-03
 
-> **2026-11-04 live bot:** [Round 1 refunded in both contracts; later captures missed](live-bot-status.md). Native 200ms block timing contradicts the bot's two-second next-block assumption. Normal settlement QA is blocked pending a timing fix.
+> **2026-11-04 live bot:** [Round 1 refunded in both contracts; later captures missed](live-bot-status.md). Native 200ms block timing contradicts the bot's two-second next-block assumption. The timing fix is implemented locally; normal settlement QA still requires an owner-operated live rerun.
 
 > **2026-11-04:** [Owner-run verification completed on both providers](verification-status.md). Earlier verification-pending statements below are historical. Bot and live-wallet QA remain outstanding.
 
@@ -48,6 +48,7 @@ For the bot, provide its dedicated key only through your local process environme
 export SETTLE_UPDOWN_ADDRESS=0xB5087655A30e42b5C2DB89078e0490221E91D33e
 export SETTLE_THRESHOLD_ADDRESS=0xe80Cd5E09C4949639bb6D9dBf5E36E8Ac3130ebe
 export SETTLE_FROM_BLOCK=53908146
+export SETTLE_BLOCK_TIME_MS=200
 # Set SETTLE_RPC_URL to your Base Sepolia provider.
 # Set SETTLE_PRIVATE_KEY via your local secret store to a separate gas-funded bot key.
 yarn settle:bot

@@ -1,0 +1,258 @@
+import assert from "node:assert/strict";
+import { spawn } from "node:child_process";
+import { readFile } from "node:fs/promises";
+import { fileURLToPath } from "node:url";
+import { createServer } from "node:http";
+import { ethers } from "ethers";
+
+// Regression for native 200ms blocks, realistic read latency and restart discovery.
+// evm_mine permits repeated whole-second timestamps on the local Anvil fixture.
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+const port = 19000 + Math.floor(Math.random() * 1000);
+const url = `http://127.0.0.1:${port}`;
+const anvil = spawn("anvil", ["--port", String(port), "--silent"], {
+  stdio: "ignore",
+});
+const provider = new ethers.providers.JsonRpcProvider(url);
+provider.pollingInterval = 20;
+const children = [];
+const overlap = process.argv.includes("--overlap");
+const proxy = createServer(async (req, res) => {
+  await sleep(60); // Network round trips must not stall deadline-sensitive captures.
+  let body = "";
+  for await (const chunk of req) body += chunk;
+  try {
+    const reply = await fetch(url, {
+      method: "POST",
+      body,
+      headers: { "content-type": "application/json" },
+    });
+    res.writeHead(reply.status, { "content-type": "application/json" });
+    res.end(await reply.text());
+  } catch {
+    res.writeHead(502);
+    res.end();
+  }
+});
+const artifact = async (name) =>
+  JSON.parse(
+    await readFile(
+      new URL(
+        `../out/${
+          name.startsWith("Mock") ? "MockBasePool" : name
+        }.sol/${name}.json`,
+        import.meta.url
+      )
+    )
+  );
+const deadline = async (fn, message) => {
+  for (let attempt = 0; attempt < 200; attempt++) {
+    if (await fn()) return;
+    await sleep(25);
+  }
+  throw new Error(message);
+};
+
+try {
+  await deadline(async () => {
+    try {
+      await provider.send("eth_chainId", []);
+      return true;
+    } catch {
+      return false;
+    }
+  }, "Anvil did not start");
+  await new Promise((resolve) => proxy.listen(0, "127.0.0.1", resolve));
+  const botUrl = `http://127.0.0.1:${proxy.address().port}`;
+  const owner = provider.getSigner(0);
+  const payer = await owner.getAddress();
+  const deploy = async (name, args) => {
+    const a = await artifact(name);
+    const contract = await new ethers.ContractFactory(
+      a.abi,
+      a.bytecode.object,
+      owner
+    ).deploy(...args);
+    await contract.deployed();
+    return contract;
+  };
+  const base = await deploy("MockReadingToken", [
+    18,
+    ethers.constants.WeiPerEther,
+  ]);
+  const quote = await deploy("MockReadingToken", [
+    18,
+    ethers.constants.WeiPerEther,
+  ]);
+  const pool = await deploy("MockBasePool", [base.address, quote.address]);
+  await (await pool.write(0)).wait();
+  const reader = await deploy("BasePoolReader", [
+    pool.address,
+    base.address,
+    4,
+  ]);
+  const up = await deploy("UpDownRounds", [
+    payer,
+    reader.address,
+    ethers.constants.AddressZero,
+    ethers.utils.parseEther("0.01"),
+  ]);
+  const pot = await deploy("ThresholdPots", [
+    payer,
+    reader.address,
+    ethers.constants.AddressZero,
+  ]);
+  for (const c of [up, pot])
+    await (
+      await c.fund(ethers.utils.parseEther("10"), {
+        value: ethers.utils.parseEther("10"),
+      })
+    ).wait();
+  const t = (await provider.getBlock("latest")).timestamp + 10;
+  await provider.send("evm_setAutomine", [false]);
+  const nonce = await owner.getTransactionCount();
+  await up.seedRound(
+    ethers.utils.parseEther("1"),
+    ethers.utils.parseEther("1"),
+    overlap ? 6 : 10,
+    overlap ? 6 : 4,
+    { gasLimit: 1500000, nonce }
+  );
+  await pot.seedRound(
+    [
+      ethers.utils.parseEther("1"),
+      ethers.utils.parseEther("1"),
+      ethers.BigNumber.from(10).pow(36).sub(1),
+      overlap ? 6 : 10,
+      overlap ? 6 : 4,
+      t + (overlap ? 18 : 10),
+      0,
+      reader.address,
+      ethers.constants.AddressZero,
+    ],
+    { gasLimit: 1500000, nonce: nonce + 1 }
+  );
+  await provider.send("evm_setNextBlockTimestamp", [t]);
+  await provider.send("evm_mine", []);
+  if (!overlap) {
+    await up.stopCampaign({ gasLimit: 1500000, nonce: nonce + 2 });
+    await pot.stopCampaign({ gasLimit: 1500000, nonce: nonce + 3 });
+  }
+  // Startup must infer native cadence from actual adjacent block timestamps.
+  await provider.send("evm_mine", [t]);
+  await provider.send("evm_mine", [t]);
+  const logs = [];
+  const startBot = (
+    upAddress = up.address,
+    potAddress = pot.address,
+    extraEnv = {}
+  ) => {
+    const bot = spawn(
+      process.execPath,
+      [fileURLToPath(new URL("settleBot.js", import.meta.url))],
+      {
+        env: {
+          ...process.env,
+          SETTLE_RPC_URL: botUrl,
+          SETTLE_PRIVATE_KEY: ethers.Wallet.fromMnemonic(
+            "test test test test test test test test test test test junk",
+            "m/44'/60'/0'/0/1"
+          ).privateKey,
+          SETTLE_UPDOWN_ADDRESS: upAddress,
+          SETTLE_THRESHOLD_ADDRESS: potAddress,
+          SETTLE_FROM_BLOCK: "0",
+          ...extraEnv,
+        },
+        stdio: ["ignore", "pipe", "pipe"],
+      }
+    );
+    bot.stdout.on("data", (chunk) => {
+      for (const line of chunk.toString().trim().split("\n")) {
+        try {
+          logs.push(JSON.parse(line));
+        } catch {}
+      }
+    });
+    bot.stderr.on("data", (chunk) => process.stderr.write(chunk));
+    children.push(bot);
+    return bot;
+  };
+  const stopBot = async (bot) => {
+    if (bot.exitCode !== null) return;
+    const exited = new Promise((resolve) => bot.once("exit", resolve));
+    bot.kill("SIGTERM");
+    await exited;
+  };
+  let bot = startBot();
+  await deadline(
+    () => logs.some((l) => l.event === "ready"),
+    "bot did not start"
+  );
+  assert.equal(
+    logs.find((l) => l.event === "ready").blockTimeMs,
+    200,
+    "native cadence must be detected"
+  );
+  for (let step = 1; step <= (overlap ? 150 : 100); step++) {
+    await sleep(200);
+    await provider.send("evm_mine", [t + Math.floor(step / 5)]);
+    if (overlap && step === 65) await up.stopCampaign({ gasLimit: 1500000 });
+    if (!overlap && step === 55) {
+      assert.ok(
+        !(await up.round(1)).startBlock.isZero(),
+        "native cutoff capture missing"
+      );
+      await stopBot(bot);
+      // The stopped Campaign has no current pointer; its seed is now 55 blocks old.
+      // Restart must recover it by elapsed time, not the former 32-block horizon.
+      assert.equal((await up.currentRound()).toString(), "0");
+      bot = startBot();
+    }
+  }
+  await stopBot(bot);
+  assert.equal(
+    (await up.round(1)).result,
+    3,
+    "native UpDown must settle Tie, not refund"
+  );
+  assert.equal(
+    (await pot.round(1)).result,
+    1,
+    `native threshold must settle Yes, not refund; events=${JSON.stringify(
+      logs
+    )}`
+  );
+  assert.equal(
+    logs.some((l) => l.event === "reverted"),
+    false,
+    "native captures must not execute early"
+  );
+  if (overlap) {
+    for (const id of [1, 2, 3]) {
+      assert.equal(
+        (await up.round(id)).result,
+        3,
+        `overlap UpDown round ${id}`
+      );
+      assert.equal(
+        (await pot.round(id)).result,
+        1,
+        `overlap threshold round ${id}`
+      );
+    }
+    assert.ok(
+      logs.some((l) => l.event === "capture_prepared" && l.count === 3),
+      "three simultaneous captures were not exercised"
+    );
+  }
+  console.log(
+    overlap
+      ? "PASS: 200ms overlap: three simultaneous captures and three settled Rounds per contract with 60ms RPC latency"
+      : "PASS: 200ms canonical blocks with repeated seconds, 60ms RPC latency and restart past 32 blocks"
+  );
+} finally {
+  for (const child of children) child.kill("SIGTERM");
+  anvil.kill("SIGTERM");
+  proxy.closeAllConnections();
+  proxy.close();
+}

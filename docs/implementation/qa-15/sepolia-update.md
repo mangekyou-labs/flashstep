@@ -1,5 +1,7 @@
 # Base Sepolia deployment update — 2026-11-03
 
+> **2026-11-04 live bot:** [Round 1 refunded in both contracts; later captures missed](live-bot-status.md). Native 200ms block timing contradicts the bot's two-second next-block assumption. Normal settlement QA is blocked pending a timing fix.
+
 > **2026-11-04:** [Owner-run verification completed on both providers](verification-status.md). Earlier verification-pending statements below are historical. Bot and live-wallet QA remain outstanding.
 
 The owner deployed, funded and seeded both contracts. This supersedes the 2026-11-02 report's missing-Campaign status; that report remains the initial review record.

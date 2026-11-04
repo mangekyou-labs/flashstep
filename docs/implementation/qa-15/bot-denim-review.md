@@ -15,3 +15,11 @@ The actual native restart fixture additionally caught partial discovery: the sch
 - JavaScript syntax, launcher Bash syntax and `git diff --check` passed.
 
 All local transactions use a public Anvil account against isolated local deployments. The native fixture models five canonical heights per EVM timestamp second; it is not a real Denim node or proof of public-chain inclusion. The final live acceptance gate remains owner-operated captures and normal settlements on both deployed Sepolia contracts. Issue #15 and #39 stay open; other ETHSKILLS QA/CROPS findings remain tracked separately. No pilot-ready or security-audit claim is made.
+
+## Failed live rerun and phase correction
+
+The owner's Infura run after the initial fix still reverted. Three sampled receipts replay as `OutsideBoundary`, with inclusion 1.0–1.4 seconds after the target; see [live evidence](live-capture-reverts.json). Provider fault is not established. The fresh-head guard previously allowed the final block of a target second and could not use the last preceding block.
+
+The correction validates native `timestampMs` and uses the phase interval `[B−200ms, B+800ms)`. It also stops on an observed capture revert and checks capture receipts before preparing further work. Independent read-only review found no new blockers; its own run of the 12 focused tests passed.
+
+[Full phase validation](logs/settle-bot-phase-smoke.log) passes legacy, native restart and three-capture overlap scenarios. The added negative case holds a real signed local capture past its boundary, mines the revert and verifies exit status 1, decoded `OutsideBoundary` and only one submitted capture. The native test proxy supplies controlled matching millisecond metadata to Anvil. These are local proofs of guards and failure handling, not proof of live inclusion. The next owner action is read-only RPC timing measurement, not an unattended paid retry.

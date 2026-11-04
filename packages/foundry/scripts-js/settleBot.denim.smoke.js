@@ -17,18 +17,35 @@ const provider = new ethers.providers.JsonRpcProvider(url);
 provider.pollingInterval = 20;
 const children = [];
 const overlap = process.argv.includes("--overlap");
+const late = process.argv.includes("--late");
+const nativeTimes = new Map();
+let latestNativeMs = 0;
+let firstBoundaryMs = 0;
+let delayed = false;
 const proxy = createServer(async (req, res) => {
   await sleep(60); // Network round trips must not stall deadline-sensitive captures.
   let body = "";
   for await (const chunk of req) body += chunk;
   try {
+    const request = JSON.parse(body);
+    if (late && !delayed && request.method === "eth_sendRawTransaction") {
+      delayed = true;
+      // Simulate a real inclusion failure, not a fabricated receipt: hold the
+      // signed capture until its valid timestamp second has already passed.
+      while (latestNativeMs < firstBoundaryMs + 1000) await sleep(20);
+    }
     const reply = await fetch(url, {
       method: "POST",
       body,
       headers: { "content-type": "application/json" },
     });
     res.writeHead(reply.status, { "content-type": "application/json" });
-    res.end(await reply.text());
+    const response = await reply.json();
+    if (request.method === "eth_getBlockByNumber" && response.result) {
+      const ms = nativeTimes.get(response.result.number);
+      if (ms != null) response.result.timestampMs = ethers.utils.hexValue(ms);
+    }
+    res.end(JSON.stringify(response));
   } catch {
     res.writeHead(502);
     res.end();
@@ -141,6 +158,12 @@ try {
   // Startup must infer native cadence from actual adjacent block timestamps.
   await provider.send("evm_mine", [t]);
   await provider.send("evm_mine", [t]);
+  latestNativeMs = t * 1000;
+  firstBoundaryMs = (t + 10) * 1000;
+  nativeTimes.set(
+    (await provider.send("eth_getBlockByNumber", ["latest", false])).number,
+    latestNativeMs
+  );
   const logs = [];
   const startBot = (
     upAddress = up.address,
@@ -196,8 +219,13 @@ try {
   for (let step = 1; step <= (overlap ? 150 : 100); step++) {
     await sleep(200);
     await provider.send("evm_mine", [t + Math.floor(step / 5)]);
+    latestNativeMs = t * 1000 + step * 200;
+    nativeTimes.set(
+      (await provider.send("eth_getBlockByNumber", ["latest", false])).number,
+      latestNativeMs
+    );
     if (overlap && step === 65) await up.stopCampaign({ gasLimit: 1500000 });
-    if (!overlap && step === 55) {
+    if (!overlap && !late && step === 55) {
       assert.ok(
         !(await up.round(1)).startBlock.isZero(),
         "native cutoff capture missing"
@@ -210,46 +238,65 @@ try {
     }
   }
   await stopBot(bot);
-  assert.equal(
-    (await up.round(1)).result,
-    3,
-    "native UpDown must settle Tie, not refund"
-  );
-  assert.equal(
-    (await pot.round(1)).result,
-    1,
-    `native threshold must settle Yes, not refund; events=${JSON.stringify(
-      logs
-    )}`
-  );
-  assert.equal(
-    logs.some((l) => l.event === "reverted"),
-    false,
-    "native captures must not execute early"
-  );
-  if (overlap) {
-    for (const id of [1, 2, 3]) {
-      assert.equal(
-        (await up.round(id)).result,
-        3,
-        `overlap UpDown round ${id}`
-      );
-      assert.equal(
-        (await pot.round(id)).result,
-        1,
-        `overlap threshold round ${id}`
+  if (late) {
+    assert.equal(bot.exitCode, 1, "late capture must stop the process");
+    const failure = logs.find((l) => l.event === "capture_failed");
+    assert.ok(
+      failure,
+      "late receipt must produce an actionable capture failure"
+    );
+    assert.equal(failure.reason, "OutsideBoundary");
+    assert.equal(failure.stopped, true);
+    assert.equal(
+      logs.filter((l) => l.event === "submitted").length,
+      1,
+      "a known failed capture must not be followed by further broadcasts"
+    );
+    console.log(
+      "PASS: real late-inclusion revert stops the CLI after one capture and reports OutsideBoundary"
+    );
+  } else {
+    assert.equal(
+      (await up.round(1)).result,
+      3,
+      "native UpDown must settle Tie, not refund"
+    );
+    assert.equal(
+      (await pot.round(1)).result,
+      1,
+      `native threshold must settle Yes, not refund; events=${JSON.stringify(
+        logs
+      )}`
+    );
+    assert.equal(
+      logs.some((l) => l.event === "reverted"),
+      false,
+      "native captures must not execute early"
+    );
+    if (overlap) {
+      for (const id of [1, 2, 3]) {
+        assert.equal(
+          (await up.round(id)).result,
+          3,
+          `overlap UpDown round ${id}`
+        );
+        assert.equal(
+          (await pot.round(id)).result,
+          1,
+          `overlap threshold round ${id}`
+        );
+      }
+      assert.ok(
+        logs.some((l) => l.event === "capture_prepared" && l.count === 3),
+        "three simultaneous captures were not exercised"
       );
     }
-    assert.ok(
-      logs.some((l) => l.event === "capture_prepared" && l.count === 3),
-      "three simultaneous captures were not exercised"
+    console.log(
+      overlap
+        ? "PASS: 200ms overlap: three simultaneous captures and three settled Rounds per contract with 60ms RPC latency"
+        : "PASS: 200ms canonical blocks with repeated seconds, 60ms RPC latency and restart past 32 blocks"
     );
   }
-  console.log(
-    overlap
-      ? "PASS: 200ms overlap: three simultaneous captures and three settled Rounds per contract with 60ms RPC latency"
-      : "PASS: 200ms canonical blocks with repeated seconds, 60ms RPC latency and restart past 32 blocks"
-  );
 } finally {
   for (const child of children) child.kill("SIGTERM");
   anvil.kill("SIGTERM");

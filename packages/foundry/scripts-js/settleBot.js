@@ -82,6 +82,7 @@ async function main() {
     await sleep(Math.max(0, nextRequest - Date.now()));
     nextRequest = Date.now() + interval;
     let response;
+    const requestStarted = Date.now();
     try {
       response = await fetch(url, {
         method: "POST",
@@ -112,8 +113,10 @@ async function main() {
       );
       throw error;
     }
-    if (method === "eth_getBlockByNumber" && params[0] === "latest")
+    if (method === "eth_getBlockByNumber" && params[0] === "latest") {
+      body.result.rpcMs = Date.now() - requestStarted;
       boundaryScheduler?.observe(body.result);
+    }
     return body.result;
   }
   const hex = ethers.utils.hexValue;
@@ -160,6 +163,7 @@ async function main() {
       sleep,
       isRunning: () => running,
       poll,
+      checkCaptureReceipts,
     });
     boundaryScheduler.observe(initialHead);
   }
@@ -170,10 +174,11 @@ async function main() {
     requestIntervalMs: interval,
     pollMs: poll,
     blockTimeMs,
+    nativeTimestampMs: initialHead.timestampMs != null,
   });
 
   async function send(c, id, action, gasPrice, boundary) {
-    if ([...pending.values()].some((tx) => tx.uncertain)) return;
+    if (!running || [...pending.values()].some((tx) => tx.uncertain)) return;
     const key = `${c.address}:${id}:${action}:${boundary ?? ""}`;
     if (pending.has(key)) return;
     // A fresh result check avoids spending gas when another caller already settled.
@@ -216,13 +221,14 @@ async function main() {
     const previous = servicingBoundary;
     servicingBoundary = true;
     try {
-      if ([...pending.values()].some((tx) => tx.uncertain)) return;
+      if (!running || [...pending.values()].some((tx) => tx.uncertain)) return;
       const nonce = nextAvailableNonce(
         Number(
           await rpc("eth_getTransactionCount", [wallet.address, "pending"])
         ),
         pending
       );
+      if (!running) return;
       const raw = await wallet.signTransaction({
         to: c.address,
         data,
@@ -238,6 +244,7 @@ async function main() {
   }
 
   async function broadcast(c, id, action, boundary, nonce, raw) {
+    if (!running) return false;
     const previous = servicingBoundary;
     servicingBoundary = true;
     try {
@@ -258,9 +265,66 @@ async function main() {
     }
   }
 
+  async function checkCaptureReceipts() {
+    for (const [key, tx] of pending) {
+      if (tx.action !== "captureBoundary") continue;
+      const receipt = await rpc("eth_getTransactionReceipt", [tx.hash]);
+      if (receipt) {
+        await recordReceipt(key, tx, receipt);
+        if (!running) return;
+      }
+    }
+  }
+
+  async function recordReceipt(key, tx, receipt) {
+    const reverted = Number(receipt.status) !== 1;
+    log(reverted ? "reverted" : "confirmed", {
+      contract: tx.c.name,
+      round: tx.id,
+      action: tx.action,
+      hash: tx.hash,
+    });
+    pending.delete(key);
+    if (reverted && tx.action === "captureBoundary") {
+      // A successful send acknowledgement says nothing about inclusion timing.
+      // Stop new wallet work immediately, including any preempted outer pass.
+      running = false;
+      process.exitCode = 1;
+      let reason = "Unknown";
+      try {
+        await rpc("eth_call", [
+          {
+            from: wallet.address,
+            to: tx.c.address,
+            data: tx.c.iface.encodeFunctionData(tx.action, [tx.id]),
+          },
+          receipt.blockNumber,
+        ]);
+      } catch (error) {
+        try {
+          reason = tx.c.iface.parseError(error.rpcData).name;
+        } catch {}
+      }
+      log("capture_failed", {
+        contract: tx.c.name,
+        round: tx.id,
+        hash: tx.hash,
+        boundary: tx.boundary,
+        includedBlock: Number(receipt.blockNumber),
+        includedTimestampMs:
+          receipt.blockTimestampMs == null
+            ? null
+            : Number(receipt.blockTimestampMs),
+        reason,
+        stopped: true,
+      });
+    }
+  }
+
   while (running) {
     try {
       const block = await rpc("eth_getBlockByNumber", ["latest", false]);
+      if (!running) return;
       if (block.hash === lastBlock) {
         await sleep(poll);
         continue;
@@ -268,13 +332,8 @@ async function main() {
       for (const [key, tx] of pending) {
         const receipt = await rpc("eth_getTransactionReceipt", [tx.hash]);
         if (receipt) {
-          log(Number(receipt.status) === 1 ? "confirmed" : "reverted", {
-            contract: tx.c.name,
-            round: tx.id,
-            action: tx.action,
-            hash: tx.hash,
-          });
-          pending.delete(key);
+          await recordReceipt(key, tx, receipt);
+          if (!running) return;
         } else {
           const minedNonce = Number(
             await rpc("eth_getTransactionCount", [wallet.address, "latest"])

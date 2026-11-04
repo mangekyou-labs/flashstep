@@ -1,7 +1,8 @@
+import { captureState } from "./captureWindow.js";
 import { nextAvailableNonce } from "./transactionSender.js";
 
 // Native sub-second blocks still expose whole-second EVM timestamps. Prepare
-// ahead, then submit inside the target second; never move a contract boundary.
+// ahead, then target inclusion in the exact second; never move a boundary.
 export function createBoundaryScheduler({
   contracts,
   rpc,
@@ -15,6 +16,7 @@ export function createBoundaryScheduler({
   sleep,
   isRunning,
   poll,
+  checkCaptureReceipts = async () => {},
 }) {
   let head;
   let observedAt;
@@ -22,7 +24,13 @@ export function createBoundaryScheduler({
   const key = (c, id, boundary) => `${c.address}:${id}:${boundary}`;
   function targets() {
     for (const [id, boundary] of attempted)
-      if (boundary < Number(head.timestamp) - 120) attempted.delete(id);
+      if (boundary < Number(head.timestamp) - 120) {
+        const [address, roundId] = id.split(":");
+        if (
+          !contracts.some((c) => c.address === address && c.rounds.has(roundId))
+        )
+          attempted.delete(id);
+      }
     const work = [];
     for (const c of contracts) {
       for (const id of c.rounds) {
@@ -59,6 +67,8 @@ export function createBoundaryScheduler({
       const estimated =
         Number(head.timestamp) + (Date.now() - observedAt) / 1000;
       if (estimated < first.boundary - 3) return;
+      await checkCaptureReceipts();
+      if (!isRunning()) return;
       // A restart may have cached one contract before background discovery
       // reaches the other. Load both schedules and all known uncached Rounds
       // before holding maintenance until the earliest shared boundary.
@@ -111,15 +121,15 @@ export function createBoundaryScheduler({
       // must not consume the one-second inclusion window.
       while (isRunning()) {
         await rpc("eth_getBlockByNumber", ["latest", false]);
-        const now = Number(head.timestamp);
-        if (now > boundary) {
+        const state = captureState(head, boundary, 200);
+        if (state === "expired" || state === "invalid") {
           for (const { c, id } of prepared) {
             attempted.set(key(c, id, boundary), boundary);
             log("missed_boundary", { contract: c.name, round: id, boundary });
           }
           return;
         }
-        if (now === boundary) {
+        if (state === "ready") {
           for (const { c, id, raw, nonce: txNonce } of prepared) {
             if (!isRunning()) return;
             attempted.set(key(c, id, boundary), boundary);

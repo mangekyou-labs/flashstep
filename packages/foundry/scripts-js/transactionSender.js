@@ -1,4 +1,5 @@
 import { ethers } from "ethers";
+import { captureState } from "./captureWindow.js";
 
 // Providers can lag their own send acknowledgement. Locally unresolved nonces
 // remain reserved even when eth_getTransactionCount has not exposed them yet.
@@ -24,10 +25,10 @@ export async function broadcastTransaction({
   const key = `${c.address}:${id}:${action}:${boundary ?? ""}`;
   // Caller holds the wallet critical section across this check and send. A
   // paused maintenance pass must not reuse its old block snapshot for a retry.
+  let latest;
   if (boundary) {
-    const latest = await rpc("eth_getBlockByNumber", ["latest", false]);
-    const now = Number(latest.timestamp);
-    if (blockTimeMs === 200 ? now !== boundary : now + 2 !== boundary) {
+    latest = await rpc("eth_getBlockByNumber", ["latest", false]);
+    if (captureState(latest, boundary, blockTimeMs) !== "ready") {
       const tracked = pending.get(key);
       if (tracked && [...pending.values()].some((tx) => tx.nonce > nonce)) {
         // Do not abandon a missing lower nonce while accepted higher nonces
@@ -62,6 +63,7 @@ export async function broadcastTransaction({
   };
   // Record before submitting: a transport timeout may still mean accepted.
   pending.set(key, tx);
+  const started = Date.now();
   try {
     await rpc("eth_sendRawTransaction", [raw]);
   } catch (error) {
@@ -84,6 +86,21 @@ export async function broadcastTransaction({
     });
     return false;
   }
-  log("submitted", { contract: c.name, round: id, action, hash });
+  log("submitted", {
+    contract: c.name,
+    round: id,
+    action,
+    hash,
+    ...(boundary
+      ? {
+          boundary,
+          headTimestamp: Number(latest.timestamp),
+          headTimestampMs:
+            latest.timestampMs == null ? null : Number(latest.timestampMs),
+          headRpcMs: latest.rpcMs,
+        }
+      : {}),
+    broadcastMs: Date.now() - started,
+  });
   return true;
 }

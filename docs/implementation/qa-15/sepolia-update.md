@@ -1,6 +1,6 @@
 # Base Sepolia deployment update — 2026-11-03
 
-> **2026-11-04 live bot:** [Round 1 refunded in both contracts; later captures missed](live-bot-status.md). Native 200ms block timing contradicts the bot's two-second next-block assumption. The timing fix is implemented locally; normal settlement QA still requires an owner-operated live rerun.
+> **2026-11-04 live bot:** [Round 1 refunded in both contracts; later captures missed](live-bot-status.md). Native 200ms block timing contradicts the bot's two-second next-block assumption. The first timing fix also failed the owner’s Infura rerun: sampled captures landed 1.0–1.4 seconds late and reverted `OutsideBoundary`. Phase guards and a capture-failure stop now pass local tests; read-only owner RPC measurement and successful live settlement are still required.
 
 > **2026-11-04:** [Owner-run verification completed on both providers](verification-status.md). Earlier verification-pending statements below are historical. Bot and live-wallet QA remain outstanding.
 

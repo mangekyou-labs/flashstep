@@ -7,6 +7,9 @@ import { ethers } from "ethers";
 
 // Regression for native 200ms blocks, realistic read latency and restart discovery.
 // evm_mine permits repeated whole-second timestamps on the local Anvil fixture.
+const latency = Number(process.env.SMOKE_RPC_LATENCY_MS ?? 60);
+if (!Number.isSafeInteger(latency) || latency < 0 || latency > 2000)
+  throw new Error("Invalid SMOKE_RPC_LATENCY_MS");
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const port = 19000 + Math.floor(Math.random() * 1000);
 const url = `http://127.0.0.1:${port}`;
@@ -23,12 +26,18 @@ let latestNativeMs = 0;
 let firstBoundaryMs = 0;
 let delayed = false;
 const proxy = createServer(async (req, res) => {
-  await sleep(60); // Network round trips must not stall deadline-sensitive captures.
+  await sleep(latency); // Network round trips must not stall deadline-sensitive captures.
   let body = "";
   for await (const chunk of req) body += chunk;
   try {
     const request = JSON.parse(body);
-    if (late && !delayed && request.method === "eth_sendRawTransaction") {
+    if (
+      late &&
+      !delayed &&
+      (Array.isArray(request) ? request : [request]).some(
+        (r) => r.method === "eth_sendRawTransaction"
+      )
+    ) {
       delayed = true;
       // Simulate a real inclusion failure, not a fabricated receipt: hold the
       // signed capture until its valid timestamp second has already passed.
@@ -41,11 +50,18 @@ const proxy = createServer(async (req, res) => {
     });
     res.writeHead(reply.status, { "content-type": "application/json" });
     const response = await reply.json();
-    if (request.method === "eth_getBlockByNumber" && response.result) {
-      const ms = nativeTimes.get(response.result.number);
-      if (ms != null) response.result.timestampMs = ethers.utils.hexValue(ms);
+    const requests = Array.isArray(request) ? request : [request];
+    for (const reply of Array.isArray(response) ? response : [response]) {
+      const call = requests.find((r) => r.id === reply.id);
+      if (call?.method === "eth_getBlockByNumber" && reply.result) {
+        const ms = nativeTimes.get(reply.result.number);
+        if (ms != null) reply.result.timestampMs = ethers.utils.hexValue(ms);
+      }
     }
-    res.end(JSON.stringify(response));
+    // JSON-RPC batches may return out of request order. Exercise id matching.
+    res.end(
+      JSON.stringify(Array.isArray(response) ? response.reverse() : response)
+    );
   } catch {
     res.writeHead(502);
     res.end();
@@ -193,6 +209,7 @@ try {
       for (const line of chunk.toString().trim().split("\n")) {
         try {
           logs.push(JSON.parse(line));
+          if (process.env.SMOKE_TRACE) console.error(line);
         } catch {}
       }
     });
@@ -237,6 +254,24 @@ try {
       bot = startBot();
     }
   }
+  // Captures keep their original exact deadlines. Slow RPCs may take longer
+  // to drain discovery/settlement work after the final boundary has passed.
+  if (!late) {
+    for (let extra = 1; extra <= 150; extra++) {
+      const ids = overlap ? [1, 2, 3] : [1];
+      const results = await Promise.all(
+        ids.flatMap((id) => [up.round(id), pot.round(id)])
+      );
+      if (results.every((r) => r.result !== 0)) break;
+      await sleep(200);
+      latestNativeMs += 200;
+      await provider.send("evm_mine", [Math.floor(latestNativeMs / 1000)]);
+      nativeTimes.set(
+        (await provider.send("eth_getBlockByNumber", ["latest", false])).number,
+        latestNativeMs
+      );
+    }
+  }
   await stopBot(bot);
   if (late) {
     assert.equal(bot.exitCode, 1, "late capture must stop the process");
@@ -259,7 +294,9 @@ try {
     assert.equal(
       (await up.round(1)).result,
       3,
-      "native UpDown must settle Tie, not refund"
+      `native UpDown must settle Tie, not refund; events=${JSON.stringify(
+        logs
+      )}`
     );
     assert.equal(
       (await pot.round(1)).result,
@@ -293,8 +330,8 @@ try {
     }
     console.log(
       overlap
-        ? "PASS: 200ms overlap: three simultaneous captures and three settled Rounds per contract with 60ms RPC latency"
-        : "PASS: 200ms canonical blocks with repeated seconds, 60ms RPC latency and restart past 32 blocks"
+        ? `PASS: 200ms overlap: three simultaneous captures and three settled Rounds per contract with ${latency}ms RPC latency`
+        : `PASS: 200ms canonical blocks with repeated seconds, ${latency}ms RPC latency and restart past 32 blocks`
     );
   }
 } finally {

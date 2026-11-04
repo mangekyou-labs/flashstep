@@ -1,0 +1,5 @@
+PASS: unprivileged CLI captured and settled both real Round contracts on time
+PASS: restart captured older Rounds in its first pass with newer current Rounds, then recovered pending captures
+PASS: settled Rounds skipped without transactions; configurable RPC proxy observed request pacing
+Invalid SETTLE_REQUEST_INTERVAL_MS
+PASS: invalid request-rate configuration fails at startup

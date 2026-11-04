@@ -3,6 +3,7 @@ import { ethers } from "ethers";
 import { createBoundaryScheduler } from "./boundaryScheduler.js";
 import {
   broadcastTransaction,
+  broadcastCaptureGroup,
   nextAvailableNonce,
 } from "./transactionSender.js";
 
@@ -79,20 +80,23 @@ async function main() {
         servicingBoundary = false;
       }
     }
+    const batch = Array.isArray(method);
+    const calls = batch ? method : [{ method, params }];
+    if (calls.length === 0) return [];
+    if (calls.length > 32) throw new Error("RPC batch exceeds 32 calls");
+    const requests = calls.map((call) => ({
+      ...call,
+      jsonrpc: "2.0",
+      id: ++requestId,
+    }));
     await sleep(Math.max(0, nextRequest - Date.now()));
-    nextRequest = Date.now() + interval;
     let response;
     const requestStarted = Date.now();
     try {
       response = await fetch(url, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          jsonrpc: "2.0",
-          id: ++requestId,
-          method,
-          params,
-        }),
+        body: JSON.stringify(batch ? requests : requests[0]),
         signal: AbortSignal.timeout(10000),
       });
     } catch {
@@ -103,22 +107,42 @@ async function main() {
     if (!response.ok)
       throw new Error(`RPC HTTP ${response.status} (${method})`);
     const body = await response.json();
-    nextRequest = Date.now() + interval;
-    if (body.error) {
-      const error = new Error(`RPC rejected ${method}`);
-      error.rpcData = body.error.data;
-      error.rpcCode = body.error.code;
-      error.rejected = !/already known|nonce too low/i.test(
-        body.error.message ?? ""
-      );
-      throw error;
-    }
-    if (method === "eth_getBlockByNumber" && params[0] === "latest") {
-      body.result.rpcMs = Date.now() - requestStarted;
-      boundaryScheduler?.observe(body.result);
-    }
-    return body.result;
+    // A batch is one HTTP round trip but still consumes one allowance per call.
+    nextRequest = Date.now() + interval * calls.length;
+    const responses = batch ? body : [body];
+    if (!Array.isArray(responses) || responses.length !== requests.length)
+      throw new Error("Incomplete RPC response");
+    const byId = new Map(responses.map((reply) => [reply.id, reply]));
+    if (byId.size !== requests.length || requests.some((r) => !byId.has(r.id)))
+      throw new Error("Invalid RPC response ids");
+    const entries = requests.map((request) => {
+      const reply = byId.get(request.id);
+      if (reply.error) {
+        const error = new Error(`RPC rejected ${request.method}`);
+        error.rpcData = reply.error.data;
+        error.rpcCode = reply.error.code;
+        error.rejected = !/already known|nonce too low/i.test(
+          reply.error.message ?? ""
+        );
+        return { error };
+      }
+      if (!("result" in reply)) throw new Error("Missing RPC result");
+      if (
+        request.method === "eth_getBlockByNumber" &&
+        request.params[0] === "latest" &&
+        reply.result
+      ) {
+        reply.result.rpcMs = Date.now() - requestStarted;
+        boundaryScheduler?.observe(reply.result);
+      }
+      return { result: reply.result };
+    });
+    if (batch) return entries;
+    if (entries[0].error) throw entries[0].error;
+    return entries[0].result;
   }
+  const rpcBatch = (calls) => rpc(calls);
+
   const hex = ethers.utils.hexValue;
   async function call(c, method, args = []) {
     const data = c.iface.encodeFunctionData(method, args);
@@ -130,13 +154,46 @@ async function main() {
       c.roundData.set(String(args[0]), result[0]);
     return result;
   }
-  const chainId = Number(await rpc("eth_chainId", []));
-  for (const c of contracts) {
-    if ((await rpc("eth_getCode", [c.address, "latest"])) === "0x")
-      throw new Error(`No ${c.name} contract at configured address`);
+  async function callMany(calls) {
+    const decoded = [];
+    for (let offset = 0; offset < calls.length; offset += 32) {
+      const chunk = calls.slice(offset, offset + 32);
+      const entries = await rpcBatch(
+        chunk.map(({ c, method, args = [] }) => ({
+          method: "eth_call",
+          params: [
+            { to: c.address, data: c.iface.encodeFunctionData(method, args) },
+            "latest",
+          ],
+        }))
+      );
+      entries.forEach((entry, index) => {
+        if (entry.error) throw entry.error;
+        const { c, method, args = [] } = chunk[index];
+        const result = c.iface.decodeFunctionResult(method, entry.result);
+        if (method === "round" && c.rounds.has(String(args[0])))
+          c.roundData.set(String(args[0]), result[0]);
+        decoded.push(result);
+      });
+    }
+    return decoded;
   }
+  const startup = await rpcBatch([
+    { method: "eth_chainId", params: [] },
+    ...contracts.map((c) => ({
+      method: "eth_getCode",
+      params: [c.address, "latest"],
+    })),
+    { method: "eth_getBlockByNumber", params: ["latest", false] },
+  ]);
+  for (const entry of startup) if (entry.error) throw entry.error;
+  const chainId = Number(startup[0].result);
+  contracts.forEach((c, index) => {
+    if (startup[index + 1].result === "0x")
+      throw new Error(`No ${c.name} contract at configured address`);
+  });
   const pending = new Map();
-  const initialHead = await rpc("eth_getBlockByNumber", ["latest", false]);
+  const initialHead = startup.at(-1).result;
   const parent = await rpc("eth_getBlockByNumber", [
     hex(Math.max(0, Number(initialHead.number) - 1)),
     false,
@@ -164,6 +221,51 @@ async function main() {
       isRunning: () => running,
       poll,
       checkCaptureReceipts,
+      callMany,
+      rpcBatch,
+      prepareAccount: async () => {
+        const entries = await rpcBatch([
+          ...contracts.map((c) => ({
+            method: "eth_call",
+            params: [
+              {
+                to: c.address,
+                data: c.iface.encodeFunctionData("currentRound", []),
+              },
+              "latest",
+            ],
+          })),
+          { method: "eth_gasPrice", params: [] },
+          {
+            method: "eth_getTransactionCount",
+            params: [wallet.address, "latest"],
+          },
+          {
+            method: "eth_getTransactionCount",
+            params: [wallet.address, "pending"],
+          },
+        ]);
+        for (const entry of entries) if (entry.error) throw entry.error;
+        return {
+          currents: contracts.map((c, index) =>
+            c.iface.decodeFunctionResult("currentRound", entries[index].result)
+          ),
+          gasPrice: entries[contracts.length].result,
+          mined: Number(entries[contracts.length + 1].result),
+          nonce: Number(entries[contracts.length + 2].result),
+        };
+      },
+      broadcastGroup: async (prepared, boundary, head) => {
+        if (!running) return false;
+        return broadcastCaptureGroup({
+          prepared,
+          boundary,
+          head,
+          rpcBatch,
+          pending,
+          log,
+        });
+      },
     });
     boundaryScheduler.observe(initialHead);
   }
@@ -176,6 +278,83 @@ async function main() {
     blockTimeMs,
     nativeTimestampMs: initialHead.timestampMs != null,
   });
+
+  // Prime restart recovery before receipt/history maintenance. The initial
+  // lookback is conservative, then verified by elapsed chain time.
+  if (blockTimeMs === 200) {
+    const height = Number(initialHead.number);
+    let distance = 512;
+    let recentStart = Math.max(fromBlock, height - distance);
+    while (recentStart > fromBlock) {
+      const older = await rpc("eth_getBlockByNumber", [
+        hex(recentStart),
+        false,
+      ]);
+      if (Number(older.timestamp) <= Number(initialHead.timestamp) - 64) break;
+      distance *= 2;
+      recentStart = Math.max(fromBlock, height - distance);
+    }
+    const queries = contracts.map((c) => ({
+      method: "eth_call",
+      params: [
+        { to: c.address, data: c.iface.encodeFunctionData("currentRound", []) },
+        "latest",
+      ],
+    }));
+    const logQueries = [];
+    for (const c of contracts)
+      for (let cursor = recentStart; cursor <= height; cursor += logRange)
+        logQueries.push({
+          c,
+          end: Math.min(height, cursor + logRange - 1),
+          query: {
+            method: "eth_getLogs",
+            params: [
+              {
+                address: c.address,
+                fromBlock: hex(cursor),
+                toBlock: hex(Math.min(height, cursor + logRange - 1)),
+                topics: [c.iface.getEventTopic("RoundSeeded")],
+              },
+            ],
+          },
+        });
+    // Respect both provider log-range limits and the bounded HTTP batch size.
+    for (
+      let offset = 0;
+      offset < logQueries.length + queries.length;
+      offset += 32
+    ) {
+      const all = [...queries, ...logQueries.map((entry) => entry.query)];
+      const replies = await rpcBatch(all.slice(offset, offset + 32));
+      replies.forEach((entry, i) => {
+        if (entry.error) throw entry.error;
+        const index = offset + i;
+        if (index < contracts.length) {
+          const c = contracts[index];
+          const [current] = c.iface.decodeFunctionResult(
+            "currentRound",
+            entry.result
+          );
+          if (!current.isZero()) c.rounds.add(current.toString());
+        } else {
+          const { c, end } = logQueries[index - contracts.length];
+          for (const event of entry.result) {
+            const r = c.iface.parseLog(event).args;
+            if (r.windowEnd.toNumber() >= Number(initialHead.timestamp))
+              c.rounds.add(r.roundId.toString());
+            else c.history.add(r.roundId.toString());
+          }
+          c.recentCursor = end + 1;
+        }
+      });
+    }
+    await callMany(
+      contracts.flatMap((c) =>
+        [...c.rounds].map((id) => ({ c, method: "round", args: [id] }))
+      )
+    );
+  }
 
   async function send(c, id, action, gasPrice, boundary) {
     if (!running || [...pending.values()].some((tx) => tx.uncertain)) return;
@@ -277,6 +456,7 @@ async function main() {
   }
 
   async function recordReceipt(key, tx, receipt) {
+    if (pending.get(key) !== tx) return;
     const reverted = Number(receipt.status) !== 1;
     log(reverted ? "reverted" : "confirmed", {
       contract: tx.c.name,

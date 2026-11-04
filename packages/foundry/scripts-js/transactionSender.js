@@ -10,6 +10,16 @@ export function nextAvailableNonce(nodeNonce, pending) {
   );
 }
 
+function hasCaptureMargin(head, boundary) {
+  const rpcMs = Number(head.rpcMs ?? 0);
+  return (
+    Number.isFinite(rpcMs) &&
+    rpcMs >= 0 &&
+    (head.timestampMs == null ||
+      Number(head.timestampMs) + 2 * rpcMs < boundary * 1000 + 800)
+  );
+}
+
 export async function broadcastTransaction({
   c,
   id,
@@ -28,7 +38,10 @@ export async function broadcastTransaction({
   let latest;
   if (boundary) {
     latest = await rpc("eth_getBlockByNumber", ["latest", false]);
-    if (captureState(latest, boundary, blockTimeMs) !== "ready") {
+    if (
+      captureState(latest, boundary, blockTimeMs) !== "ready" ||
+      (blockTimeMs === 200 && !hasCaptureMargin(latest, boundary))
+    ) {
       const tracked = pending.get(key);
       if (tracked && [...pending.values()].some((tx) => tx.nonce > nonce)) {
         // Do not abandon a missing lower nonce while accepted higher nonces
@@ -103,4 +116,103 @@ export async function broadcastTransaction({
     broadcastMs: Date.now() - started,
   });
   return true;
+}
+
+// A native capture group shares one freshly fetched head and one HTTP batch.
+// Batch members are independent transactions, not an atomic onchain operation.
+export async function broadcastCaptureGroup({
+  prepared,
+  boundary,
+  head,
+  rpcBatch,
+  pending,
+  log,
+}) {
+  const phase = captureState(head, boundary, 200);
+  // Reject a head whose remaining phase cannot cover a conservative read-age
+  // plus submission budget. This estimate is not an inclusion guarantee.
+  const margin = hasCaptureMargin(head, boundary);
+  if (phase !== "ready" || !margin) {
+    for (const { c, id } of prepared)
+      log("missed_boundary", {
+        contract: c.name,
+        round: id,
+        boundary,
+        reason: phase === "ready" ? "insufficient_margin" : phase,
+      });
+    return false;
+  }
+  if (prepared.length === 0 || prepared.length > 32) return false;
+  if ([...pending.values()].some((tx) => tx.uncertain)) return false;
+  const entries = prepared.map(({ c, id, raw, nonce }) => {
+    const key = `${c.address}:${id}:captureBoundary:${boundary}`;
+    const tx = {
+      c,
+      id,
+      raw,
+      nonce,
+      boundary,
+      action: "captureBoundary",
+      hash: ethers.utils.keccak256(raw),
+      absentBlocks: 0,
+      uncertain: false,
+    };
+    return { key, tx };
+  });
+  // Register the entire nonce range before the request can reach the provider.
+  // Partial acceptance must never make a lower nonce available for fresh work.
+  for (const { key, tx } of entries) pending.set(key, tx);
+  const started = Date.now();
+  let replies;
+  try {
+    replies = await rpcBatch(
+      entries.map(({ tx }) => ({
+        method: "eth_sendRawTransaction",
+        params: [tx.raw],
+      }))
+    );
+    if (!Array.isArray(replies) || replies.length !== entries.length)
+      throw new Error("Incomplete capture batch");
+    for (const [index, reply] of replies.entries())
+      if (
+        !reply.error &&
+        reply.result?.toLowerCase() !== entries[index].tx.hash.toLowerCase()
+      )
+        throw new Error("Uncertain capture hash");
+  } catch {
+    replies = entries.map(() => ({
+      error: new Error("Uncertain capture batch"),
+    }));
+  }
+  const failed = replies.some((reply) => reply.error);
+  for (const [index, { tx }] of entries.entries()) {
+    const error = replies[index].error;
+    // Even an acknowledged higher nonce can depend on an unaccepted lower
+    // nonce. Reconcile the whole group before any fresh wallet work.
+    if (failed) tx.uncertain = true;
+    if (error) {
+      log(error.rejected ? "broadcast_rejected" : "broadcast_uncertain", {
+        contract: tx.c.name,
+        round: tx.id,
+        action: tx.action,
+        hash: tx.hash,
+        rpcCode: error.rpcCode,
+      });
+    } else {
+      log("submitted", {
+        contract: tx.c.name,
+        round: tx.id,
+        action: tx.action,
+        hash: tx.hash,
+        boundary,
+        headTimestamp: Number(head.timestamp),
+        headTimestampMs:
+          head.timestampMs == null ? null : Number(head.timestampMs),
+        headRpcMs: head.rpcMs,
+        broadcastMs: Date.now() - started,
+        captureBatchSize: entries.length,
+      });
+    }
+  }
+  return !failed;
 }

@@ -18,7 +18,7 @@
     "lint": "make lint",
     "test": "forge test",
     "settle:bot": "node scripts-js/settleBot.js",
-    "settle:bot:smoke": "forge build && node scripts-js/settleBot.smoke.js",
+    "settle:bot:smoke": "forge build && node --test scripts-js/boundaryScheduler.test.js scripts-js/captureWindow.test.js scripts-js/captureBatch.test.js scripts-js/rpcBatchTransport.test.js && node scripts-js/settleBot.smoke.js && node scripts-js/settleBot.denim.smoke.js && node scripts-js/settleBot.denim.smoke.js --overlap && node scripts-js/settleBot.denim.smoke.js --late && SMOKE_RPC_LATENCY_MS=300 node scripts-js/settleBot.denim.smoke.js && SMOKE_RPC_LATENCY_MS=300 node scripts-js/settleBot.denim.smoke.js --overlap",
     "payer:deploy": "node scripts-js/payerDeploy.js",
     "payer:deploy:test": "node --test scripts-js/payerDeployGate.test.js",
     "payer:deploy:smoke": "forge build && node scripts-js/payerDeploy.smoke.js",

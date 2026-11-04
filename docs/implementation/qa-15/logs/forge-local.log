@@ -1,0 +1,818 @@
+Compiling 107 files with Solc 0.8.36
+Solc 0.8.36 finished in 99.42s
+Compiler run successful with warnings:
+Warning (6335): "at" will be promoted to keyword in the future and will not be allowed as an identifier anymore.
+   --> lib/openzeppelin-contracts/contracts/utils/structs/Checkpoints.sol:129:5:
+    |
+129 |     function at(Trace256 storage self, uint32 index) internal view returns (Checkpoint256 memory) {
+    |     ^ (Relevant source part starts here and spans across multiple lines).
+
+Warning (6335): "at" will be promoted to keyword in the future and will not be allowed as an identifier anymore.
+   --> lib/openzeppelin-contracts/contracts/utils/structs/Checkpoints.sol:344:5:
+    |
+344 |     function at(Trace224 storage self, uint32 index) internal view returns (Checkpoint224 memory) {
+    |     ^ (Relevant source part starts here and spans across multiple lines).
+
+Warning (6335): "at" will be promoted to keyword in the future and will not be allowed as an identifier anymore.
+   --> lib/openzeppelin-contracts/contracts/utils/structs/Checkpoints.sol:559:5:
+    |
+559 |     function at(Trace208 storage self, uint32 index) internal view returns (Checkpoint208 memory) {
+    |     ^ (Relevant source part starts here and spans across multiple lines).
+
+Warning (6335): "at" will be promoted to keyword in the future and will not be allowed as an identifier anymore.
+   --> lib/openzeppelin-contracts/contracts/utils/structs/Checkpoints.sol:774:5:
+    |
+774 |     function at(Trace160 storage self, uint32 index) internal view returns (Checkpoint160 memory) {
+    |     ^ (Relevant source part starts here and spans across multiple lines).
+
+
+Ran 1 test for test/readings/BasePoolReader.fork.t.sol:BasePoolReaderForkTest
+[SKIP] testBaseUniswapV3ReadingAtPinnedMainnetBlock() (gas: 0)
+Suite result: ok. 0 passed; 0 failed; 1 skipped; finished in 3.69ms (1.18ms CPU time)
+
+Ran 7 tests for test/deploy/StakeCapRule.t.sol:StakeCapRuleTest
+[PASS] test_aLongerLookbackDilutesTheWindowPushSoTheCapGrows() (gas: 12785)
+[PASS] test_capScalesWithPoolDepth() (gas: 6987)
+[PASS] test_emptyPoolZeroWindowOrZeroLookbackGivesZero() (gas: 448)
+[PASS] test_hugeDepthDoesNotOverflow() (gas: 4993)
+[PASS] test_shorterWindowsGiveALowerCap() (gas: 12493)
+[PASS] test_theDerivedMovesForALookbackOf30() (gas: 9583)
+[PASS] test_thirtySecondWindowOnTheDatedPoolAllowsAbout33USDC() (gas: 5024)
+Suite result: ok. 7 passed; 0 failed; 0 skipped; finished in 3.77ms (1.12ms CPU time)
+
+Ran 19 tests for test/readings/BasePoolReader.t.sol:BasePoolReaderTest
+[PASS] testCapturedPriceStaysPinnedWhenSupplyChanges() (gas: 115689)
+[PASS] testExtremeTicksInBothDecimalDirectionsNeverPanic() (gas: 6741392)
+[PASS] testInsufficientHistoryCannotProduceAReading() (gas: 30555)
+[PASS] testLookbackOfFourSecondsSpansMoreThanOneBlock() (gas: 1071719)
+[PASS] testLookbackOfSixtyOneSecondsIsRejected() (gas: 41865)
+[PASS] testLookbackOfSixtySecondsIsAccepted() (gas: 1071873)
+[PASS] testLookbackOfThreeSecondsIsRejected() (gas: 41906)
+[PASS] testMissingAndFutureBlocksCannotUseALatestReading() (gas: 119162)
+[PASS] testMissingObservationCannotProduceAReading() (gas: 54002)
+[PASS] testNegativeMeanTickRoundsDown() (gas: 247820)
+[PASS] testOneBlockTenfoldSpikeIsStronglyDamped() (gas: 248616)
+[PASS] testOneBlocksMissingObservationLeavesOnlyThatBoundaryUncaptured() (gas: 148874)
+[PASS] testPriceBelowOneQuintillionthStillProducesAReading() (gas: 177191)
+[PASS] testPriceOnlyTokenDoesNotNeedTotalSupply() (gas: 1643049)
+[PASS] testReaderWorksOnANonBaseChain() (gas: 1071904)
+[PASS] testReadingUsesTwapAndPinsItsEndpoint() (gas: 160050)
+[PASS] testRejectsTokenOutsideThePool() (gas: 44272)
+[PASS] testSixAndEighteenDecimalTokensAndReverseQuote() (gas: 2752549)
+[PASS] testTiesCompareAtFullPrecision() (gas: 329308)
+Suite result: ok. 19 passed; 0 failed; 0 skipped; finished in 4.82ms (1.52ms CPU time)
+
+Ran 2 tests for test/rounds/UpDownCampaign.security.t.sol:UpDownCampaignSecurityTest
+[PASS] testSellRejectingRecipientRollsBackAndCallbackSeesConsumedShares() (gas: 1434738)
+[PASS] testWithdrawalRejectingOwnerRollsBackAndCallbackSeesReducedFunding() (gas: 1234799)
+Suite result: ok. 2 passed; 0 failed; 0 skipped; finished in 1.15ms (415.25µs CPU time)
+
+Ran 2 tests for test/rounds/UpDownCampaign.security.t.sol:UpDownCampaignSecurityTestERC20
+[PASS] testSellRejectingRecipientRollsBackAndCallbackSeesConsumedShares() (gas: 1557387)
+[PASS] testWithdrawalRejectingOwnerRollsBackAndCallbackSeesReducedFunding() (gas: 1340485)
+Suite result: ok. 2 passed; 0 failed; 0 skipped; finished in 1.35ms (639.96µs CPU time)
+
+Ran 13 tests for test/rounds/UpDownCampaign.t.sol:UpDownCampaignTestERC20
+[PASS] testCampaignEndFinishesAlreadyScheduledTradingRound() (gas: 661196)
+[PASS] testNextRoundTradesWhilePreviousWindowKeepsItsBookAndResult() (gas: 1598419)
+[PASS] testOwnerActionsRejectPlayers() (gas: 24508)
+[PASS] testOwnerWithdrawsOnlyUncommittedFundingAndSettledSurplus() (gas: 760955)
+[PASS] testReaderAndRepeatedSettingsChangesSnapshotAtNextRound() (gas: 1408089)
+[PASS] testSchedulesSkipIdleRoundsWithoutAllocatingTheirSeed() (gas: 468022)
+[PASS] testSeedCannotRestartStoppedCampaign() (gas: 116870)
+[PASS] testSellCannotSpendSeedNeededForOutageAndTieRefunds() (gas: 837303)
+[PASS] testSellDeadlineBalanceAndMinimumProceeds() (gas: 284526)
+[PASS] testSellNeverRestoresCumulativeBuyCap() (gas: 266493)
+[PASS] testSellPaysQuoteAndTieRefundsOnlyNetPaid() (gas: 763792)
+[PASS] testSettingsApplyFromNextRoundWithoutMovingCurrentCutoff() (gas: 535069)
+[PASS] testStopKeepsCurrentUntradedRoundAvailableButCreatesNoLaterRound() (gas: 1404918)
+Suite result: ok. 13 passed; 0 failed; 0 skipped; finished in 6.62ms (2.73ms CPU time)
+
+Ran 7 tests for test/threshold/ThresholdRefunds.t.sol:ThresholdRefundsTest
+[PASS] testExpiredIdleSlotsCannotConsumeOpeningFunding() (gas: 1161805)
+[PASS] testMissingEndObservationRefundsOpeningAndPlayerStakes() (gas: 775761)
+[PASS] testMissingReadingDeadlineOneSecondBeforeExactlyAndAfter() (gas: 756865)
+[PASS] testRefundOpeningRemainsOriginalPayerAfterTransferAndNeverExpires() (gas: 785428)
+[PASS] testUnavailableHistoricalSupplyRefundsEvenWithCapturedPrice() (gas: 1380085)
+[PASS] testUnsettledExpiryOneSecondBeforeExactlyAndAfterWithValidReading() (gas: 889857)
+[PASS] testValidReadingCanSettleAtGraceDeadline() (gas: 923312)
+Suite result: ok. 7 passed; 0 failed; 0 skipped; finished in 6.66ms (3.07ms CPU time)
+
+Ran 15 tests for test/threshold/ThresholdPots.t.sol:ThresholdPotsTestERC20
+[PASS] testCadenceBoundariesAndStoppedCampaignRejectChanges() (gas: 870852)
+[PASS] testCapAccumulatesAcrossBothSidesAndOpeningDoesNotConsumeCap() (gas: 795558)
+[PASS] testIdleSlotsDoNotConsumeFundingAndFinalStartedRoundFinishes() (gas: 1345122)
+[PASS] testMissedEndpointCannotUseLaterReadingOrSettleMatchedPot() (gas: 606826)
+[PASS] testOnlyUncommittedFundingCanWithdraw() (gas: 619119)
+[PASS] testOpeningStakeAndPlayersShareThePotWithNoFee() (gas: 1074167)
+[PASS] testOpeningStakesAreReservedOnBothSides() (gas: 697093)
+[PASS] testRenouncePreservesOriginalPayerOpeningAndDustClaims() (gas: 1082600)
+[PASS] testRenounceRequiresOriginalPayerToWithdrawUncommittedFunding() (gas: 855404)
+[PASS] testRenouncedLazyRoundsRequireNoOpeningPrefunding() (gas: 4121849)
+[PASS] testRoundingDustBelongsToOriginalPayerAfterAllWinnersClaim() (gas: 1115566)
+[PASS] testSettingsApplyToNextRoundAndStopPreservesCurrent() (gas: 1342770)
+[PASS] testTieRefundsEveryStakeIncludingPayerBothSides() (gas: 1017985)
+[PASS] testUnmatchedRefundDoesNotRequireReadingAndZeroOpeningIsMaterialized() (gas: 621543)
+[PASS] testZeroOpeningAfterRenounceCreditsDustToLastPayer() (gas: 1277811)
+Suite result: ok. 15 passed; 0 failed; 0 skipped; finished in 7.08ms (3.40ms CPU time)
+
+Ran 15 tests for test/threshold/ThresholdPots.t.sol:ThresholdPotsTest
+[PASS] testCadenceBoundariesAndStoppedCampaignRejectChanges() (gas: 870852)
+[PASS] testCapAccumulatesAcrossBothSidesAndOpeningDoesNotConsumeCap() (gas: 789367)
+[PASS] testIdleSlotsDoNotConsumeFundingAndFinalStartedRoundFinishes() (gas: 1324440)
+[PASS] testMissedEndpointCannotUseLaterReadingOrSettleMatchedPot() (gas: 606826)
+[PASS] testOnlyUncommittedFundingCanWithdraw() (gas: 603787)
+[PASS] testOpeningStakeAndPlayersShareThePotWithNoFee() (gas: 1042967)
+[PASS] testOpeningStakesAreReservedOnBothSides() (gas: 681274)
+[PASS] testRenouncePreservesOriginalPayerOpeningAndDustClaims() (gas: 1055370)
+[PASS] testRenounceRequiresOriginalPayerToWithdrawUncommittedFunding() (gas: 844454)
+[PASS] testRenouncedLazyRoundsRequireNoOpeningPrefunding() (gas: 3975191)
+[PASS] testRoundingDustBelongsToOriginalPayerAfterAllWinnersClaim() (gas: 1089443)
+[PASS] testSettingsApplyToNextRoundAndStopPreservesCurrent() (gas: 1322088)
+[PASS] testTieRefundsEveryStakeIncludingPayerBothSides() (gas: 997207)
+[PASS] testUnmatchedRefundDoesNotRequireReadingAndZeroOpeningIsMaterialized() (gas: 609673)
+[PASS] testZeroOpeningAfterRenounceCreditsDustToLastPayer() (gas: 1248430)
+Suite result: ok. 15 passed; 0 failed; 0 skipped; finished in 7.96ms (4.31ms CPU time)
+
+Ran 11 tests for test/rounds/UpDownRefunds.t.sol:UpDownRefundsTest
+[PASS] testExpiredIdleSlotsCannotConsumeSeedFunding() (gas: 375556)
+[PASS] testExpirySettlementRefundsInsteadOfPayingKnownWinner() (gas: 595768)
+[PASS] testMissingEndObservationRefundsStakeAfterDeadline() (gas: 482257)
+[PASS] testMissingReadingDeadlineOneSecondBeforeExactlyAndAfter() (gas: 363030)
+[PASS] testPayerRefundRejectRollsBackAndPaymentClearsCreditBeforeReentry() (gas: 4132287)
+[PASS] testRefundPaysNetStakeOnceAndOriginalPayerKeepsEntireSeed() (gas: 362427)
+[PASS] testRejectedAutoRefundRollsBackAndOtherPlayersCanClaim() (gas: 1658057)
+[PASS] testRenouncedPayerCanWithdrawSeedRefundForever() (gas: 322812)
+[PASS] testSettledWinningsNeverBecomeRefundsAndClaimsNeverExpire() (gas: 725790)
+[PASS] testUnsettledExpiryOneSecondBeforeExactlyAndAfterWithValidReadings() (gas: 668719)
+[PASS] testValidCapturedReadingsStillSettleAtGraceDeadline() (gas: 685634)
+Suite result: ok. 11 passed; 0 failed; 0 skipped; finished in 2.12ms (1.63ms CPU time)
+
+Ran 6 tests for test/threshold/ThresholdQuotes.t.sol:ThresholdQuotesTest
+[PASS] testCurrentPriceAndMarketCapComeFromContractViews() (gas: 841930)
+[PASS] testLazyRoundPayerQuoteIncludesOpeningStakesAndMatchesClaim() (gas: 1289673)
+[PASS] testOthersJoiningYourSideShrinkHeldPayout() (gas: 737190)
+[PASS] testPreviewIncludesExistingStakeAndMatchesClaimable() (gas: 1051986)
+[PASS] testRawSixDecimalStakeAmountsPreservePayoutRounding() (gas: 995328)
+[PASS] testSixDecimalTokenQuoteMatchesPaidClaim() (gas: 4607864)
+Suite result: ok. 6 passed; 0 failed; 0 skipped; finished in 2.53ms (1.92ms CPU time)
+
+Ran 13 tests for test/rounds/UpDownCampaign.t.sol:UpDownCampaignTest
+[PASS] testCampaignEndFinishesAlreadyScheduledTradingRound() (gas: 646071)
+[PASS] testNextRoundTradesWhilePreviousWindowKeepsItsBookAndResult() (gas: 1577440)
+[PASS] testOwnerActionsRejectPlayers() (gas: 24389)
+[PASS] testOwnerWithdrawsOnlyUncommittedFundingAndSettledSurplus() (gas: 736479)
+[PASS] testReaderAndRepeatedSettingsChangesSnapshotAtNextRound() (gas: 1407706)
+[PASS] testSchedulesSkipIdleRoundsWithoutAllocatingTheirSeed() (gas: 452957)
+[PASS] testSeedCannotRestartStoppedCampaign() (gas: 116823)
+[PASS] testSellCannotSpendSeedNeededForOutageAndTieRefunds() (gas: 814300)
+[PASS] testSellDeadlineBalanceAndMinimumProceeds() (gas: 269337)
+[PASS] testSellNeverRestoresCumulativeBuyCap() (gas: 255661)
+[PASS] testSellPaysQuoteAndTieRefundsOnlyNetPaid() (gas: 748055)
+[PASS] testSettingsApplyFromNextRoundWithoutMovingCurrentCutoff() (gas: 519904)
+[PASS] testStopKeepsCurrentUntradedRoundAvailableButCreatesNoLaterRound() (gas: 1387208)
+Suite result: ok. 13 passed; 0 failed; 0 skipped; finished in 4.78ms (4.12ms CPU time)
+
+Ran 11 tests for test/rounds/UpDownRefunds.t.sol:UpDownRefundsTestERC20
+[PASS] testExpiredIdleSlotsCannotConsumeSeedFunding() (gas: 382423)
+[PASS] testExpirySettlementRefundsInsteadOfPayingKnownWinner() (gas: 610886)
+[PASS] testMissingEndObservationRefundsStakeAfterDeadline() (gas: 495878)
+[PASS] testMissingReadingDeadlineOneSecondBeforeExactlyAndAfter() (gas: 375037)
+[PASS] testPayerRefundRejectRollsBackAndPaymentClearsCreditBeforeReentry() (gas: 4346552)
+[PASS] testRefundPaysNetStakeOnceAndOriginalPayerKeepsEntireSeed() (gas: 387270)
+[PASS] testRejectedAutoRefundRollsBackAndOtherPlayersCanClaim() (gas: 1785193)
+[PASS] testRenouncedPayerCanWithdrawSeedRefundForever() (gas: 341074)
+[PASS] testSettledWinningsNeverBecomeRefundsAndClaimsNeverExpire() (gas: 743409)
+[PASS] testUnsettledExpiryOneSecondBeforeExactlyAndAfterWithValidReadings() (gas: 680822)
+[PASS] testValidCapturedReadingsStillSettleAtGraceDeadline() (gas: 700752)
+Suite result: ok. 11 passed; 0 failed; 0 skipped; finished in 2.54ms (2.05ms CPU time)
+
+Ran 7 tests for test/threshold/ThresholdRefunds.t.sol:ThresholdRefundsTestERC20
+[PASS] testExpiredIdleSlotsCannotConsumeOpeningFunding() (gas: 1167961)
+[PASS] testMissingEndObservationRefundsOpeningAndPlayerStakes() (gas: 799295)
+[PASS] testMissingReadingDeadlineOneSecondBeforeExactlyAndAfter() (gas: 778761)
+[PASS] testRefundOpeningRemainsOriginalPayerAfterTransferAndNeverExpires() (gas: 809781)
+[PASS] testUnavailableHistoricalSupplyRefundsEvenWithCapturedPrice() (gas: 1401981)
+[PASS] testUnsettledExpiryOneSecondBeforeExactlyAndAfterWithValidReading() (gas: 911753)
+[PASS] testValidReadingCanSettleAtGraceDeadline() (gas: 938316)
+Suite result: ok. 7 passed; 0 failed; 0 skipped; finished in 4.63ms (3.91ms CPU time)
+
+Ran 2 tests for test/rounds/UpDownRounds.fork.t.sol:UpDownRoundsForkTest
+[SKIP] testMissedRealPoolBoundaryRefundsWithoutUsingLaterReading() (gas: 0)
+[SKIP] testRoundSettlesFromRealPinnedBasePool() (gas: 0)
+Suite result: ok. 0 passed; 0 failed; 2 skipped; finished in 273.92µs (38.38µs CPU time)
+
+Ran 2 tests for test/rounds/UpDownRounds.fork.t.sol:UpDownRoundsForkTestERC20
+[SKIP] testMissedRealPoolBoundaryRefundsWithoutUsingLaterReading() (gas: 0)
+[SKIP] testRoundSettlesFromRealPinnedBasePool() (gas: 0)
+Suite result: ok. 0 passed; 0 failed; 2 skipped; finished in 292.21µs (31.71µs CPU time)
+
+Ran 7 tests for test/deploy/PayerCampaignSettings.t.sol:PayerCampaignSettingsTest
+[PASS] test_aCampaignDurationSchedulesTheEndTimeOnBothContracts() (gas: 18246245)
+Logs:
+  UpDownRounds   0x3a2A9A84a29Bd24F5D67551BB170c11D9432FfD6
+  ThresholdPots  0x0364dA37e81B7B05e0E9d3FFdd09b382386baE4f
+  Funded and seeded both Campaigns
+
+[PASS] test_fundAndSeedRefusesASignerThatIsNotTheOwner() (gas: 26979541)
+Logs:
+  UpDownRounds   0x3a2A9A84a29Bd24F5D67551BB170c11D9432FfD6
+  ThresholdPots  0x0364dA37e81B7B05e0E9d3FFdd09b382386baE4f
+
+[PASS] test_fundingMoreThanThePayerHoldsRevertsBeforeAnyTransfer() (gas: 16790499)
+Logs:
+  UpDownRounds   0x3a2A9A84a29Bd24F5D67551BB170c11D9432FfD6
+  ThresholdPots  0x0364dA37e81B7B05e0E9d3FFdd09b382386baE4f
+
+[PASS] test_marketCapMetricDeploysAVettedMarketCapReader() (gas: 18578888)
+Logs:
+  UpDownRounds   0x3a2A9A84a29Bd24F5D67551BB170c11D9432FfD6
+  ThresholdPots  0x0364dA37e81B7B05e0E9d3FFdd09b382386baE4f
+  Funded and seeded both Campaigns
+
+[PASS] test_payerPaysEverythingAndLeavesNoStandingAllowance() (gas: 18034715)
+Logs:
+  UpDownRounds   0x3a2A9A84a29Bd24F5D67551BB170c11D9432FfD6
+  ThresholdPots  0x0364dA37e81B7B05e0E9d3FFdd09b382386baE4f
+  Funded and seeded both Campaigns
+
+[PASS] test_theThresholdSettingsReadBackFromTheContract() (gas: 18047939)
+Logs:
+  UpDownRounds   0x3a2A9A84a29Bd24F5D67551BB170c11D9432FfD6
+  ThresholdPots  0x0364dA37e81B7B05e0E9d3FFdd09b382386baE4f
+  Funded and seeded both Campaigns
+
+[PASS] test_theUpDownSettingsReadBackFromTheContract() (gas: 18048300)
+Logs:
+  UpDownRounds   0x3a2A9A84a29Bd24F5D67551BB170c11D9432FfD6
+  ThresholdPots  0x0364dA37e81B7B05e0E9d3FFdd09b382386baE4f
+  Funded and seeded both Campaigns
+
+Suite result: ok. 7 passed; 0 failed; 0 skipped; finished in 21.60ms (31.19ms CPU time)
+
+Ran 13 tests for test/deploy/PayerVetting.t.sol:PayerVettingTest
+[PASS] test_aBaseTokenThatIsNotInThePoolIsRefused() (gas: 11224117)
+[PASS] test_aFeeTierThatIsNotThePoolsIsRefused() (gas: 10608906)
+[PASS] test_aMatchingPoolAndStakeTokenPassPreflight() (gas: 10608486)
+[PASS] test_aPoolFromAnotherFactoryIsRefused() (gas: 10736970)
+[PASS] test_aPoolTheFactoryDoesNotRegisterIsRefused() (gas: 10612887)
+[PASS] test_aPoolWithNoCodeIsRefused() (gas: 10599151)
+[PASS] test_aStakeTokenWithNoCodeIsRefused() (gas: 10607255)
+[PASS] test_anUnknownChainIsRefused() (gas: 10592306)
+[PASS] test_ethAsTheStakeTokenNeedsNoCode() (gas: 10604033)
+[PASS] test_onBaseAPoolFromAnotherFactoryIsRefusedEvenIfTheConfigNamesThatFactory() (gas: 11122844)
+[PASS] test_onBaseSepoliaTheFactoryIsItsOwnConstant() (gas: 11124436)
+[PASS] test_onBaseTheFactoryIsTheUniswapV3FactoryAndTheConfigCannotChangeIt() (gas: 11126480)
+[PASS] test_runRefusesBeforeItBroadcastsAnything() (gas: 10610769)
+Suite result: ok. 13 passed; 0 failed; 0 skipped; finished in 19.28ms (17.75ms CPU time)
+
+Ran 1 test for test/stake/StakeAsset.t.sol:StakeAssetTest
+[PASS] testERC20FundingAndWithdrawalConserveRawUnits() (gas: 7301498)
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 397.54µs (224.67µs CPU time)
+
+Ran 1 test for test/deploy/StakeCapRule.fork.t.sol:StakeCapRuleForkTest
+[SKIP: skipped] setUp() (gas: 0)
+Suite result: ok. 0 passed; 0 failed; 1 skipped; finished in 401.21µs (0.00ns CPU time)
+
+Ran 11 tests for test/deploy/PayerStakeCapRule.t.sol:PayerStakeCapRuleTest
+[PASS] test_aCampaignDurationMustOutlastTheTradingPhase() (gas: 10610935)
+[PASS] test_aShorterWindowLowersTheCapTheRuleAllows() (gas: 10626745)
+[PASS] test_aStakeTokenThatIsNotThePoolsQuoteTokenCannotBeChecked() (gas: 10609031)
+[PASS] test_aThresholdCapOverTheRuleIsRefused() (gas: 10623264)
+[PASS] test_allowingACapAboveTheRuleDoesNotSkipTheStakeTokenCodeCheck() (gas: 10608990)
+[PASS] test_allowingACapAboveTheRuleDoesNotSkipTheStakeTokenIdentityCheck() (gas: 10611864)
+[PASS] test_anUpDownCapOneUnitOverTheRuleIsRefused() (gas: 10621317)
+[PASS] test_capsUnderTheRulePass() (gas: 10623992)
+[PASS] test_ethIsTheOnlyStakeTokenBesidesTheQuoteAndNeedsTheCapAboveRuleFlag() (gas: 20876499)
+[PASS] test_runRefusesToDeployAnOverCap() (gas: 10622752)
+[PASS] test_thePayerCanAcceptACapAboveTheRuleOnPurpose() (gas: 10619967)
+Suite result: ok. 11 passed; 0 failed; 0 skipped; finished in 7.77ms (6.96ms CPU time)
+
+Ran 10 tests for test/readings/MarketCapReader.t.sol:MarketCapReaderTest
+[PASS] testCurrentAndFutureBlockMarketCapIsRejected() (gas: 110696)
+[PASS] testFixedSupplyConfigurationMustMatchTheVettedValue() (gas: 121365)
+[PASS] testFlashMintCaptureUsesFinalEndBlockSupplyAndIgnoresLaterMint() (gas: 209290)
+[PASS] testLivePreviewUsesLastCompletedSupplyWithoutCapturingSettlementReading() (gas: 107424)
+[PASS] testMarketCapBeyondUint256RejectsWithoutPanic() (gas: 2530675)
+[PASS] testMissingCheckpointInterfaceRejectsMarketCapOnly() (gas: 1551789)
+[PASS] testMissingPriceCaptureCannotProduceMarketCap() (gas: 19604)
+[PASS] testTimestampClockAndFaultySourcesRejectMarketCapOnly() (gas: 134493)
+[PASS] testUnsupportedTokenStillHasPriceWithoutTotalSupply() (gas: 2124076)
+[PASS] testVettedFixedSupplySupportsBothDecimalDirections() (gas: 4497880)
+Suite result: ok. 10 passed; 0 failed; 0 skipped; finished in 1.08ms (793.46µs CPU time)
+
+Ran 1 test for test/deploy/PayerOwnership.t.sol:PayerOwnershipTest
+[PASS] test_payerOwnsBothContractsAndNobodyElseHoldsARole() (gas: 16763710)
+Logs:
+  UpDownRounds   0x3a2A9A84a29Bd24F5D67551BB170c11D9432FfD6
+  ThresholdPots  0x0364dA37e81B7B05e0E9d3FFdd09b382386baE4f
+
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 9.85ms (9.45ms CPU time)
+
+Ran 3 tests for test/readings/MarketCapReader.fuzz.t.sol:MarketCapReaderFuzzTest
+[PASS] testFuzzMarketCapIsExactProductOrNoValidMarketCap(uint256,uint256,uint256) (runs: 256, μ: 768693, ~: 768292)
+[PASS] testFuzzMarketCapNearTheOverflowLimit(uint256,uint256,uint256,uint256,uint256) (runs: 256, μ: 768781, ~: 768828)
+[PASS] testMarketCapAtTheExactUint256Limit() (gas: 1535915)
+Suite result: ok. 3 passed; 0 failed; 0 skipped; finished in 32.79ms (49.15ms CPU time)
+
+Ran 2 tests for test/rounds/UpDownRounds.security.t.sol:UpDownRoundsSecurityTest
+[PASS] testClaimUpdatesStateBeforeCallbackAndBlocksReentry() (gas: 1753649)
+[PASS] testRejectingRecipientKeepsItsClaimAndDoesNotBlockOthers() (gas: 1953506)
+Suite result: ok. 2 passed; 0 failed; 0 skipped; finished in 745.13µs (428.25µs CPU time)
+
+Ran 2 tests for test/rounds/UpDownRounds.security.t.sol:UpDownRoundsSecurityTestERC20
+[PASS] testClaimUpdatesStateBeforeCallbackAndBlocksReentry() (gas: 1861397)
+[PASS] testRejectingRecipientKeepsItsClaimAndDoesNotBlockOthers() (gas: 2085954)
+Suite result: ok. 2 passed; 0 failed; 0 skipped; finished in 895.50µs (534.88µs CPU time)
+
+Ran 15 tests for test/rounds/UpDownRounds.t.sol:UpDownRoundsTest
+[PASS] testBoundaryCannotBeReplacedByLatePrice() (gas: 758233)
+[PASS] testBuyAtCutoffAndAfterWindowReverts() (gas: 123715)
+[PASS] testCaptureAfterSettlementCannotChangeEndpoints() (gas: 520878)
+[PASS] testDownWinsAndClaimsNeverExpire() (gas: 708193)
+[PASS] testFundingAndSeedingAreOwnerOnly() (gas: 91536)
+[PASS] testKnownSpeedrunAverageChanceQuote() (gas: 54993)
+[PASS] testPhaseMovesWithoutTransactions() (gas: 69712)
+[PASS] testPositionPredictsActualPayoutAndSpentETH() (gas: 803639)
+[PASS] testRepeatedBoundaryCaptureKeepsFirstBlock() (gas: 523811)
+[PASS] testRoundPageViewsQuoteChanceAndPayoutOnchain() (gas: 264248)
+[PASS] testSettleEarlyAndMissingBoundaryRevert() (gas: 91183)
+[PASS] testSlippageAndPaymentMismatchDoNotChangePosition() (gas: 362617)
+[PASS] testTieRefundsExactlyTheBuyCost() (gas: 687812)
+[PASS] testUnknownRoundAndZeroSharesRevert() (gas: 111966)
+[PASS] testWinningClaimAndLosingAndRepeatedClaims() (gas: 893855)
+Suite result: ok. 15 passed; 0 failed; 0 skipped; finished in 3.05ms (2.04ms CPU time)
+
+Ran 15 tests for test/rounds/UpDownRounds.t.sol:UpDownRoundsTestERC20
+[PASS] testBoundaryCannotBeReplacedByLatePrice() (gas: 773206)
+[PASS] testBuyAtCutoffAndAfterWindowReverts() (gas: 123726)
+[PASS] testCaptureAfterSettlementCannotChangeEndpoints() (gas: 520889)
+[PASS] testDownWinsAndClaimsNeverExpire() (gas: 725595)
+[PASS] testFundingAndSeedingAreOwnerOnly() (gas: 84859)
+[PASS] testKnownSpeedrunAverageChanceQuote() (gas: 55004)
+[PASS] testPhaseMovesWithoutTransactions() (gas: 69723)
+[PASS] testPositionPredictsActualPayoutAndSpentETH() (gas: 820644)
+[PASS] testRepeatedBoundaryCaptureKeepsFirstBlock() (gas: 523822)
+[PASS] testRoundPageViewsQuoteChanceAndPayoutOnchain() (gas: 279221)
+[PASS] testSettleEarlyAndMissingBoundaryRevert() (gas: 91194)
+[PASS] testSlippageAndPaymentMismatchDoNotChangePosition() (gas: 371597)
+[PASS] testTieRefundsExactlyTheBuyCost() (gas: 701228)
+[PASS] testUnknownRoundAndZeroSharesRevert() (gas: 111977)
+[PASS] testWinningClaimAndLosingAndRepeatedClaims() (gas: 919349)
+Suite result: ok. 15 passed; 0 failed; 0 skipped; finished in 1.83ms (1.42ms CPU time)
+
+Ran 6 tests for test/rounds/UpDownRounds.fuzz.t.sol:UpDownRoundsFuzzTest
+[PASS] testAcceptedCapBoundariesAndFirstBeyond() (gas: 12050702)
+[PASS] testCumulativeCapAtExactLimitAndFirstWeiBeyond() (gas: 3325739)
+[PASS] testEvenDurationBoundariesCaptureOnTwoSecondBlocks() (gas: 13894339)
+[PASS] testFuzzSeedAndCapConserveETH(uint256,uint256,uint256,bool) (runs: 256, μ: 3568041, ~: 3763914)
+[PASS] testRejectsEveryUnsupportedOddDurationBeforeTrading() (gas: 49552632)
+[PASS] testSeedBoundariesAndReserveLimit() (gas: 15606979)
+Suite result: ok. 6 passed; 0 failed; 0 skipped; finished in 79.22ms (82.18ms CPU time)
+
+Ran 2 tests for test/threshold/ThresholdPots.fork.t.sol:ThresholdPotsForkTest
+[SKIP] testMissedRealPoolBoundaryRefundsOpeningAndStake() (gas: 0)
+[SKIP] testThresholdPotSettlesFromRealPinnedBasePool() (gas: 0)
+Suite result: ok. 0 passed; 0 failed; 2 skipped; finished in 186.79µs (18.87µs CPU time)
+
+Ran 2 tests for test/threshold/ThresholdPots.fork.t.sol:ThresholdPotsForkTestERC20
+[SKIP] testMissedRealPoolBoundaryRefundsOpeningAndStake() (gas: 0)
+[SKIP] testThresholdPotSettlesFromRealPinnedBasePool() (gas: 0)
+Suite result: ok. 0 passed; 0 failed; 2 skipped; finished in 169.92µs (14.08µs CPU time)
+
+Ran 3 tests for test/threshold/ThresholdPots.fuzz.t.sol:ThresholdPotsFuzzTest
+[PASS] testFuzzThresholdNearReading(uint256,uint256,uint256,uint256,uint256) (runs: 256, μ: 3725727, ~: 3728910)
+[PASS] testFuzzThresholdOpeningAndStakesConserveEveryWei(uint256,uint256,uint256,uint256,uint256) (runs: 256, μ: 3724320, ~: 3728396)
+[PASS] testNumericConfigurationBoundaries() (gas: 36950120)
+Suite result: ok. 3 passed; 0 failed; 0 skipped; finished in 254.81ms (367.32ms CPU time)
+
+Ran 1 test for test/stake/StakeToken.fork.t.sol:StakeTokenForkTest
+[SKIP: skipped] setUp() (gas: 0)
+Suite result: ok. 0 passed; 0 failed; 1 skipped; finished in 655.96µs (0.00ns CPU time)
+
+Ran 7 tests for test/readings/BasePoolReader.fuzz.t.sol:BasePoolReaderFuzzTest
+[PASS] testDecimalsAboveEighteenAreRejected() (gas: 625096)
+[PASS] testFuzzBothDirectionsAreReciprocalWithinFlooring(int256,uint256,uint256) (runs: 256, μ: 2799242, ~: 2806684)
+[PASS] testFuzzConstantTickReadingIsIndependentOfLookback(uint256,int256) (runs: 256, μ: 2657998, ~: 2658268)
+[PASS] testFuzzPriceIsMonotonicInTickForBothDirections(int256,int256,uint256,uint256,bool) (runs: 256, μ: 3502237, ~: 3519541)
+[PASS] testFuzzPriceIsNonzeroOrNoValidReadingNeverAPanic(int256,uint256,uint256,bool) (runs: 256, μ: 1756816, ~: 1762342)
+[PASS] testFuzzTickZeroPriceIsExactlyTheDecimalScale(uint256,uint256,bool) (runs: 256, μ: 1741286, ~: 1741227)
+[PASS] testFuzzTwapLiesBetweenItsTickPricesForEveryLookback(uint256,int256,int256,uint256) (runs: 256, μ: 4885341, ~: 4885691)
+Suite result: ok. 7 passed; 0 failed; 0 skipped; finished in 349.47ms (544.37ms CPU time)
+
+Ran 3 tests for test/threshold/ThresholdPots.fuzz.t.sol:ThresholdPotsFuzzTestERC20
+[PASS] testFuzzThresholdNearReading(uint256,uint256,uint256,uint256,uint256) (runs: 256, μ: 3933588, ~: 3935093)
+[PASS] testFuzzThresholdOpeningAndStakesConserveEveryWei(uint256,uint256,uint256,uint256,uint256) (runs: 256, μ: 3933287, ~: 3934505)
+[PASS] testNumericConfigurationBoundaries() (gas: 38908486)
+Suite result: ok. 3 passed; 0 failed; 0 skipped; finished in 318.55ms (475.34ms CPU time)
+
+Ran 6 tests for test/threshold/ThresholdPots.marketcap.t.sol:ThresholdPotsMarketCapTest
+[PASS] testFixedSupplyOneAboveThresholdResolvesYes() (gas: 1394688)
+[PASS] testFixedSupplyOneBelowThresholdResolvesNo() (gas: 1394637)
+[PASS] testFixedSupplyTieUsesConfiguredHistoricalSupply() (gas: 1386344)
+[PASS] testMarketCapReaderFromAnotherPoolCannotCreateRound() (gas: 1479883)
+[PASS] testMarketCapUsesFinalEndBlockSupplyAndCannotSettleBeforeBlockCompletes() (gas: 1477714)
+[PASS] testUnsupportedSupplyCannotCreateRoundOrConsumeOpeningFunding() (gas: 503587)
+Suite result: ok. 6 passed; 0 failed; 0 skipped; finished in 2.81ms (1.73ms CPU time)
+
+Ran 6 tests for test/threshold/ThresholdPots.marketcap.t.sol:ThresholdPotsMarketCapTestERC20
+[PASS] testFixedSupplyOneAboveThresholdResolvesYes() (gas: 1405233)
+[PASS] testFixedSupplyOneBelowThresholdResolvesNo() (gas: 1405182)
+[PASS] testFixedSupplyTieUsesConfiguredHistoricalSupply() (gas: 1396889)
+[PASS] testMarketCapReaderFromAnotherPoolCannotCreateRound() (gas: 1479894)
+[PASS] testMarketCapUsesFinalEndBlockSupplyAndCannotSettleBeforeBlockCompletes() (gas: 1488259)
+[PASS] testUnsupportedSupplyCannotCreateRoundOrConsumeOpeningFunding() (gas: 503598)
+Suite result: ok. 6 passed; 0 failed; 0 skipped; finished in 2.57ms (1.85ms CPU time)
+
+Ran 4 tests for test/threshold/ThresholdPots.security.t.sol:ThresholdPotsSecurityTest
+[PASS] testClaimCallbackSeesConsumedPositionAndBlocksReentry() (gas: 1795620)
+[PASS] testFundingWithdrawalRollsBackOnRejectionThenChecksEffectsBeforeCallback() (gas: 1461702)
+[PASS] testOwnershipCannotRedirectOpeningStakesOrDustAndDustWithdrawalIsAtomic() (gas: 4982414)
+[PASS] testRejectingWinnerRollsBackOnlyTheirClaim() (gas: 1939450)
+Suite result: ok. 4 passed; 0 failed; 0 skipped; finished in 1.48ms (997.17µs CPU time)
+
+Ran 4 tests for test/threshold/ThresholdPots.security.t.sol:ThresholdPotsSecurityTestERC20
+[PASS] testClaimCallbackSeesConsumedPositionAndBlocksReentry() (gas: 1909061)
+[PASS] testFundingWithdrawalRollsBackOnRejectionThenChecksEffectsBeforeCallback() (gas: 1566242)
+[PASS] testOwnershipCannotRedirectOpeningStakesOrDustAndDustWithdrawalIsAtomic() (gas: 5234590)
+[PASS] testRejectingWinnerRollsBackOnlyTheirClaim() (gas: 2073449)
+Suite result: ok. 4 passed; 0 failed; 0 skipped; finished in 1.96ms (1.55ms CPU time)
+
+Ran 3 tests for test/rounds/UpDownCampaign.fuzz.t.sol:UpDownCampaignFuzzTest
+[PASS] testExplicitSpecTimingBoundariesAndFirstInvalidValues() (gas: 521770)
+[PASS] testFuzzCampaignTimingsAndCap(uint256,uint256,uint256) (runs: 256, μ: 347462, ~: 77762)
+[PASS] testFuzzTiePaysCumulativeBuysMinusProceedsFlooredOnce(bytes32,uint256) (runs: 256, μ: 4494528, ~: 4504057)
+Suite result: ok. 3 passed; 0 failed; 0 skipped; finished in 529.17ms (1.00s CPU time)
+
+Ran 3 tests for test/rounds/UpDownCampaign.fuzz.t.sol:UpDownCampaignFuzzTestERC20
+[PASS] testExplicitSpecTimingBoundariesAndFirstInvalidValues() (gas: 521781)
+[PASS] testFuzzCampaignTimingsAndCap(uint256,uint256,uint256) (runs: 256, μ: 309937, ~: 77705)
+[PASS] testFuzzTiePaysCumulativeBuysMinusProceedsFlooredOnce(bytes32,uint256) (runs: 256, μ: 4703804, ~: 4707145)
+Suite result: ok. 3 passed; 0 failed; 0 skipped; finished in 609.54ms (1.18s CPU time)
+
+Ran 11 tests for test/stake/StakeToken.behavior.t.sol:StakeTokenBehaviorTest
+[PASS] testBlockedWinnerDoesNotBlockAnotherClaimAndCanRetry() (gas: 1608480)
+[PASS] testFeeAndTransferTimeBalanceChangesRejected() (gas: 1660855)
+[PASS] testFuzzEighteenDecimalPayouts(uint96) (runs: 256, μ: 7777499, ~: 7777444)
+[PASS] testFuzzEighteenDecimalUpDownPayouts(uint256,uint256,uint256) (runs: 256, μ: 10155225, ~: 10172918)
+[PASS] testFuzzSixDecimalPayouts(uint96) (runs: 256, μ: 7777308, ~: 7777158)
+[PASS] testFuzzSixDecimalUpDownPayouts(uint256,uint256,uint256) (runs: 256, μ: 10159485, ~: 10173268)
+[PASS] testNoReturnTokenFundingTradingAndClaims() (gas: 1633051)
+[PASS] testPausedAndFeeOutgoingClaimsRollbackThenRetry() (gas: 1432427)
+[PASS] testPayoutConstructorBoundaries() (gas: 9518632)
+[PASS] testTokenCallbacksCannotReenterStakeOrClaim() (gas: 1556271)
+[PASS] testWrongAssetAndMissingAllowanceRevertAtomically() (gas: 1688304)
+Suite result: ok. 11 passed; 0 failed; 0 skipped; finished in 610.52ms (1.26s CPU time)
+
+Ran 3 tests for test/readings/BasePoolReader.invariant.t.sol:BasePoolReaderInvariantTest
+[PASS] invariant_capturedReadingsNeverChange() (runs: 128, calls: 12800, reverts: 0)
+
+╭-----------------------+-----------------------------+-------+---------+----------╮
+| Contract              | Selector                    | Calls | Reverts | Discards |
++==================================================================================+
+| BasePoolReaderHandler | advance                     | 2533  | 0       | 0        |
+|-----------------------+-----------------------------+-------+---------+----------|
+| BasePoolReaderHandler | capture                     | 2526  | 0       | 0        |
+|-----------------------+-----------------------------+-------+---------+----------|
+| BasePoolReaderHandler | toggleMissingAtCurrentBlock | 2566  | 0       | 0        |
+|-----------------------+-----------------------------+-------+---------+----------|
+| BasePoolReaderHandler | warpWithinBlock             | 2471  | 0       | 0        |
+|-----------------------+-----------------------------+-------+---------+----------|
+| BasePoolReaderHandler | writeTick                   | 2704  | 0       | 0        |
+╰-----------------------+-----------------------------+-------+---------+----------╯
+
+Logs:
+  captures 11 repeat captures 7
+  failed captures 6 writes 18
+  advances 39 missing toggles 19
+
+[PASS] invariant_onlyScriptedGapsFailCapture() (runs: 128, calls: 12800, reverts: 0)
+
+╭-----------------------+-----------------------------+-------+---------+----------╮
+| Contract              | Selector                    | Calls | Reverts | Discards |
++==================================================================================+
+| BasePoolReaderHandler | advance                     | 2602  | 0       | 0        |
+|-----------------------+-----------------------------+-------+---------+----------|
+| BasePoolReaderHandler | capture                     | 2541  | 0       | 0        |
+|-----------------------+-----------------------------+-------+---------+----------|
+| BasePoolReaderHandler | toggleMissingAtCurrentBlock | 2538  | 0       | 0        |
+|-----------------------+-----------------------------+-------+---------+----------|
+| BasePoolReaderHandler | warpWithinBlock             | 2622  | 0       | 0        |
+|-----------------------+-----------------------------+-------+---------+----------|
+| BasePoolReaderHandler | writeTick                   | 2497  | 0       | 0        |
+╰-----------------------+-----------------------------+-------+---------+----------╯
+
+Logs:
+  captures 8 repeat captures 7
+  failed captures 3 writes 14
+  advances 48 missing toggles 20
+
+[PASS] invariant_uncapturedBlocksHaveNoReading() (runs: 128, calls: 12800, reverts: 0)
+
+╭-----------------------+-----------------------------+-------+---------+----------╮
+| Contract              | Selector                    | Calls | Reverts | Discards |
++==================================================================================+
+| BasePoolReaderHandler | advance                     | 2575  | 0       | 0        |
+|-----------------------+-----------------------------+-------+---------+----------|
+| BasePoolReaderHandler | capture                     | 2587  | 0       | 0        |
+|-----------------------+-----------------------------+-------+---------+----------|
+| BasePoolReaderHandler | toggleMissingAtCurrentBlock | 2552  | 0       | 0        |
+|-----------------------+-----------------------------+-------+---------+----------|
+| BasePoolReaderHandler | warpWithinBlock             | 2482  | 0       | 0        |
+|-----------------------+-----------------------------+-------+---------+----------|
+| BasePoolReaderHandler | writeTick                   | 2604  | 0       | 0        |
+╰-----------------------+-----------------------------+-------+---------+----------╯
+
+Logs:
+  captures 12 repeat captures 11
+  failed captures 2 writes 18
+  advances 42 missing toggles 15
+
+Suite result: ok. 3 passed; 0 failed; 0 skipped; finished in 3.28s (5.66s CPU time)
+
+Ran 2 tests for test/rounds/UpDownRounds.invariant.t.sol:UpDownRoundsInvariantTest
+[PASS] invariantETHHeldEqualsSeedPlusStakesMinusPaidClaims() (runs: 256, calls: 128000, reverts: 0)
+
+╭--------------+----------+-------+---------+----------╮
+| Contract     | Selector | Calls | Reverts | Discards |
++======================================================+
+| RoundHandler | advance  | 31976 | 0       | 0        |
+|--------------+----------+-------+---------+----------|
+| RoundHandler | buy      | 32052 | 0       | 0        |
+|--------------+----------+-------+---------+----------|
+| RoundHandler | claim    | 32170 | 0       | 0        |
+|--------------+----------+-------+---------+----------|
+| RoundHandler | settle   | 31802 | 0       | 0        |
+╰--------------+----------+-------+---------+----------╯
+
+Logs:
+  successful buys in final sequence: 2
+  paid claims in final sequence: 1
+
+[PASS] invariantEveryOutstandingWinningClaimIsBacked() (runs: 256, calls: 128000, reverts: 0)
+
+╭--------------+----------+-------+---------+----------╮
+| Contract     | Selector | Calls | Reverts | Discards |
++======================================================+
+| RoundHandler | advance  | 31993 | 0       | 0        |
+|--------------+----------+-------+---------+----------|
+| RoundHandler | buy      | 32249 | 0       | 0        |
+|--------------+----------+-------+---------+----------|
+| RoundHandler | claim    | 31973 | 0       | 0        |
+|--------------+----------+-------+---------+----------|
+| RoundHandler | settle   | 31785 | 0       | 0        |
+╰--------------+----------+-------+---------+----------╯
+
+Logs:
+  successful buys in final sequence: 2
+  paid claims in final sequence: 1
+
+Suite result: ok. 2 passed; 0 failed; 0 skipped; finished in 12.15s (17.04s CPU time)
+
+Ran 2 tests for test/rounds/UpDownRounds.invariant.t.sol:UpDownRoundsInvariantTestERC20
+[PASS] invariantETHHeldEqualsSeedPlusStakesMinusPaidClaims() (runs: 256, calls: 128000, reverts: 0)
+
+╭--------------+----------+-------+---------+----------╮
+| Contract     | Selector | Calls | Reverts | Discards |
++======================================================+
+| RoundHandler | advance  | 31835 | 0       | 0        |
+|--------------+----------+-------+---------+----------|
+| RoundHandler | buy      | 31879 | 0       | 0        |
+|--------------+----------+-------+---------+----------|
+| RoundHandler | claim    | 32171 | 0       | 0        |
+|--------------+----------+-------+---------+----------|
+| RoundHandler | settle   | 32115 | 0       | 0        |
+╰--------------+----------+-------+---------+----------╯
+
+Logs:
+  successful buys in final sequence: 2
+  paid claims in final sequence: 2
+
+[PASS] invariantEveryOutstandingWinningClaimIsBacked() (runs: 256, calls: 128000, reverts: 0)
+
+╭--------------+----------+-------+---------+----------╮
+| Contract     | Selector | Calls | Reverts | Discards |
++======================================================+
+| RoundHandler | advance  | 32008 | 0       | 0        |
+|--------------+----------+-------+---------+----------|
+| RoundHandler | buy      | 32210 | 0       | 0        |
+|--------------+----------+-------+---------+----------|
+| RoundHandler | claim    | 31945 | 0       | 0        |
+|--------------+----------+-------+---------+----------|
+| RoundHandler | settle   | 31837 | 0       | 0        |
+╰--------------+----------+-------+---------+----------╯
+
+Logs:
+  successful buys in final sequence: 5
+  paid claims in final sequence: 2
+
+Suite result: ok. 2 passed; 0 failed; 0 skipped; finished in 15.46s (25.97s CPU time)
+
+Ran 6 tests for test/rounds/UpDownRounds.fuzz.t.sol:UpDownRoundsFuzzTestERC20
+[PASS] testAcceptedCapBoundariesAndFirstBeyond() (gas: 12688248)
+[PASS] testCumulativeCapAtExactLimitAndFirstWeiBeyond() (gas: 3497956)
+[PASS] testEvenDurationBoundariesCaptureOnTwoSecondBlocks() (gas: 14513873)
+[PASS] testFuzzSeedAndCapConserveETH(uint256,uint256,uint256,bool) (runs: 256, μ: 3739558, ~: 3932909)
+[PASS] testRejectsEveryUnsupportedOddDurationBeforeTrading() (gas: 52008888)
+[PASS] testSeedBoundariesAndReserveLimit() (gas: 16477668)
+Suite result: ok. 6 passed; 0 failed; 0 skipped; finished in 15.85s (15.85s CPU time)
+
+Ran 2 tests for test/rounds/UpDownCampaign.invariant.t.sol:UpDownCampaignInvariantTest
+[PASS] invariantEveryWeiHasObservedSourceAndDestination() (runs: 256, calls: 128000, reverts: 0)
+
+╭-----------------+-----------+-------+---------+----------╮
+| Contract        | Selector  | Calls | Reverts | Discards |
++==========================================================+
+| CampaignHandler | advance   | 12959 | 0       | 0        |
+|-----------------+-----------+-------+---------+----------|
+| CampaignHandler | buy       | 12746 | 0       | 0        |
+|-----------------+-----------+-------+---------+----------|
+| CampaignHandler | claim     | 12708 | 0       | 0        |
+|-----------------+-----------+-------+---------+----------|
+| CampaignHandler | configure | 12753 | 0       | 0        |
+|-----------------+-----------+-------+---------+----------|
+| CampaignHandler | expire    | 12698 | 0       | 0        |
+|-----------------+-----------+-------+---------+----------|
+| CampaignHandler | outage    | 12716 | 0       | 0        |
+|-----------------+-----------+-------+---------+----------|
+| CampaignHandler | sell      | 12807 | 0       | 0        |
+|-----------------+-----------+-------+---------+----------|
+| CampaignHandler | settle    | 12987 | 0       | 0        |
+|-----------------+-----------+-------+---------+----------|
+| CampaignHandler | stop      | 13011 | 0       | 0        |
+|-----------------+-----------+-------+---------+----------|
+| CampaignHandler | withdraw  | 12615 | 0       | 0        |
+╰-----------------+-----------+-------+---------+----------╯
+
+Logs:
+  successful buys: 3
+  successful sells: 2
+  paid claims: 3
+  settled books: 2
+  refunded books: 2
+  expected cap/backing refusals: 0
+
+[PASS] invariantHeldEqualsUnresolvedEscrowPlusClaimsPlusWithdrawableLiquidity() (runs: 256, calls: 128000, reverts: 0)
+
+╭-----------------+-----------+-------+---------+----------╮
+| Contract        | Selector  | Calls | Reverts | Discards |
++==========================================================+
+| CampaignHandler | advance   | 12720 | 0       | 0        |
+|-----------------+-----------+-------+---------+----------|
+| CampaignHandler | buy       | 12705 | 0       | 0        |
+|-----------------+-----------+-------+---------+----------|
+| CampaignHandler | claim     | 12791 | 0       | 0        |
+|-----------------+-----------+-------+---------+----------|
+| CampaignHandler | configure | 12805 | 0       | 0        |
+|-----------------+-----------+-------+---------+----------|
+| CampaignHandler | expire    | 12824 | 0       | 0        |
+|-----------------+-----------+-------+---------+----------|
+| CampaignHandler | outage    | 12971 | 0       | 0        |
+|-----------------+-----------+-------+---------+----------|
+| CampaignHandler | sell      | 12874 | 0       | 0        |
+|-----------------+-----------+-------+---------+----------|
+| CampaignHandler | settle    | 12770 | 0       | 0        |
+|-----------------+-----------+-------+---------+----------|
+| CampaignHandler | stop      | 12713 | 0       | 0        |
+|-----------------+-----------+-------+---------+----------|
+| CampaignHandler | withdraw  | 12827 | 0       | 0        |
+╰-----------------+-----------+-------+---------+----------╯
+
+Logs:
+  successful buys: 3
+  successful sells: 2
+  paid claims: 3
+  settled books: 2
+  refunded books: 2
+  expected cap/backing refusals: 0
+
+Suite result: ok. 2 passed; 0 failed; 0 skipped; finished in 26.29s (47.52s CPU time)
+
+Ran 1 test for test/threshold/ThresholdPots.invariant.t.sol:ThresholdPotsInvariantTestERC20
+[PASS] invariantCustodyMatchesIndependentClaimsAndDust() (runs: 256, calls: 128000, reverts: 0)
+
+╭------------------+-----------------+-------+---------+----------╮
+| Contract         | Selector        | Calls | Reverts | Discards |
++=================================================================+
+| ThresholdHandler | advance         | 16146 | 0       | 0        |
+|------------------+-----------------+-------+---------+----------|
+| ThresholdHandler | claim           | 15898 | 0       | 0        |
+|------------------+-----------------+-------+---------+----------|
+| ThresholdHandler | expire          | 16018 | 0       | 0        |
+|------------------+-----------------+-------+---------+----------|
+| ThresholdHandler | outage          | 15880 | 0       | 0        |
+|------------------+-----------------+-------+---------+----------|
+| ThresholdHandler | settle          | 15897 | 0       | 0        |
+|------------------+-----------------+-------+---------+----------|
+| ThresholdHandler | stake           | 15994 | 0       | 0        |
+|------------------+-----------------+-------+---------+----------|
+| ThresholdHandler | withdrawDust    | 15947 | 0       | 0        |
+|------------------+-----------------+-------+---------+----------|
+| ThresholdHandler | withdrawFunding | 16220 | 0       | 0        |
+╰------------------+-----------------+-------+---------+----------╯
+
+Logs:
+  refunded books: 2
+
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 26.30s (26.30s CPU time)
+
+Ran 2 tests for test/rounds/UpDownCampaign.invariant.t.sol:UpDownCampaignInvariantTestERC20
+[PASS] invariantEveryWeiHasObservedSourceAndDestination() (runs: 256, calls: 128000, reverts: 0)
+
+╭-----------------+-----------+-------+---------+----------╮
+| Contract        | Selector  | Calls | Reverts | Discards |
++==========================================================+
+| CampaignHandler | advance   | 12639 | 0       | 0        |
+|-----------------+-----------+-------+---------+----------|
+| CampaignHandler | buy       | 12894 | 0       | 0        |
+|-----------------+-----------+-------+---------+----------|
+| CampaignHandler | claim     | 12824 | 0       | 0        |
+|-----------------+-----------+-------+---------+----------|
+| CampaignHandler | configure | 12800 | 0       | 0        |
+|-----------------+-----------+-------+---------+----------|
+| CampaignHandler | expire    | 12873 | 0       | 0        |
+|-----------------+-----------+-------+---------+----------|
+| CampaignHandler | outage    | 12799 | 0       | 0        |
+|-----------------+-----------+-------+---------+----------|
+| CampaignHandler | sell      | 12800 | 0       | 0        |
+|-----------------+-----------+-------+---------+----------|
+| CampaignHandler | settle    | 12829 | 0       | 0        |
+|-----------------+-----------+-------+---------+----------|
+| CampaignHandler | stop      | 12791 | 0       | 0        |
+|-----------------+-----------+-------+---------+----------|
+| CampaignHandler | withdraw  | 12751 | 0       | 0        |
+╰-----------------+-----------+-------+---------+----------╯
+
+Logs:
+  successful buys: 6
+  successful sells: 3
+  paid claims: 4
+  settled books: 2
+  refunded books: 2
+  expected cap/backing refusals: 0
+
+[PASS] invariantHeldEqualsUnresolvedEscrowPlusClaimsPlusWithdrawableLiquidity() (runs: 256, calls: 128000, reverts: 0)
+
+╭-----------------+-----------+-------+---------+----------╮
+| Contract        | Selector  | Calls | Reverts | Discards |
++==========================================================+
+| CampaignHandler | advance   | 12889 | 0       | 0        |
+|-----------------+-----------+-------+---------+----------|
+| CampaignHandler | buy       | 12932 | 0       | 0        |
+|-----------------+-----------+-------+---------+----------|
+| CampaignHandler | claim     | 12746 | 0       | 0        |
+|-----------------+-----------+-------+---------+----------|
+| CampaignHandler | configure | 12848 | 0       | 0        |
+|-----------------+-----------+-------+---------+----------|
+| CampaignHandler | expire    | 12815 | 0       | 0        |
+|-----------------+-----------+-------+---------+----------|
+| CampaignHandler | outage    | 12758 | 0       | 0        |
+|-----------------+-----------+-------+---------+----------|
+| CampaignHandler | sell      | 12863 | 0       | 0        |
+|-----------------+-----------+-------+---------+----------|
+| CampaignHandler | settle    | 12798 | 0       | 0        |
+|-----------------+-----------+-------+---------+----------|
+| CampaignHandler | stop      | 12701 | 0       | 0        |
+|-----------------+-----------+-------+---------+----------|
+| CampaignHandler | withdraw  | 12650 | 0       | 0        |
+╰-----------------+-----------+-------+---------+----------╯
+
+Logs:
+  successful buys: 3
+  successful sells: 2
+  paid claims: 2
+  settled books: 2
+  refunded books: 2
+  expected cap/backing refusals: 0
+
+Suite result: ok. 2 passed; 0 failed; 0 skipped; finished in 27.69s (49.81s CPU time)
+
+Ran 1 test for test/threshold/ThresholdPots.invariant.t.sol:ThresholdPotsInvariantTest
+[PASS] invariantCustodyMatchesIndependentClaimsAndDust() (runs: 256, calls: 128000, reverts: 0)
+
+╭------------------+-----------------+-------+---------+----------╮
+| Contract         | Selector        | Calls | Reverts | Discards |
++=================================================================+
+| ThresholdHandler | advance         | 15820 | 0       | 0        |
+|------------------+-----------------+-------+---------+----------|
+| ThresholdHandler | claim           | 16175 | 0       | 0        |
+|------------------+-----------------+-------+---------+----------|
+| ThresholdHandler | expire          | 16078 | 0       | 0        |
+|------------------+-----------------+-------+---------+----------|
+| ThresholdHandler | outage          | 15961 | 0       | 0        |
+|------------------+-----------------+-------+---------+----------|
+| ThresholdHandler | settle          | 16043 | 0       | 0        |
+|------------------+-----------------+-------+---------+----------|
+| ThresholdHandler | stake           | 15843 | 0       | 0        |
+|------------------+-----------------+-------+---------+----------|
+| ThresholdHandler | withdrawDust    | 16129 | 0       | 0        |
+|------------------+-----------------+-------+---------+----------|
+| ThresholdHandler | withdrawFunding | 15951 | 0       | 0        |
+╰------------------+-----------------+-------+---------+----------╯
+
+Logs:
+  refunded books: 2
+
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 50.13s (50.13s CPU time)
+
+Ran 50 test suites in 50.48s (180.08s CPU time): 283 tests passed, 0 failed, 11 skipped (294 total tests)

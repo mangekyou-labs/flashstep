@@ -1,0 +1,23 @@
+- generic [active] [ref=f1e1]:
+  - main [ref=f1e4]:
+    - generic [ref=f1e5]:
+      - generic [ref=f1e6]:
+        - link "Base Rounds" [ref=f1e7] [cursor=pointer]:
+          - /url: /rounds?brand=BASE&market=threshold
+        - button "Connect Wallet" [ref=f1e10] [cursor=pointer]
+      - generic [ref=f1e11]:
+        - link "← Up/down Rounds" [ref=f1e12] [cursor=pointer]:
+          - /url: /rounds?brand=BASE
+        - generic [ref=f1e13]: Onchain · Threshold · Campaign
+        - generic [ref=f1e14]:
+          - heading "Threshold Campaign not configured" [level=1] [ref=f1e15]
+          - paragraph [ref=f1e16]: Set this payer’s ThresholdPots address to connect the Campaign.
+        - region [ref=f1e17]:
+          - heading "Pool balance" [level=2] [ref=f1e18]
+          - paragraph [ref=f1e19]: Reading the contract…
+        - generic [ref=f1e20]:
+          - generic [ref=f1e21]: Find a previous Round
+          - spinbutton "Find a previous Round" [ref=f1e22]
+          - button "View Round" [ref=f1e23] [cursor=pointer]
+        - generic [ref=f1e24]: Operated by Base. Threshold Rounds settle from pinned onchain Readings. Tie and Unmatched refund every stake. Claims never expire.
+  - alert [ref=f1e25]

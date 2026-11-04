@@ -1,0 +1,96 @@
+{
+  "observedAt": "2026-11-04T01:57:27.778Z",
+  "chainId": 84532,
+  "blocks": [
+    {
+      "number": 54177823,
+      "timestamp": 1793757433
+    },
+    {
+      "number": 54177822,
+      "timestamp": 1793757433
+    },
+    {
+      "number": 54177821,
+      "timestamp": 1793757433
+    },
+    {
+      "number": 54177820,
+      "timestamp": 1793757432
+    },
+    {
+      "number": 54177819,
+      "timestamp": 1793757432
+    },
+    {
+      "number": 54177818,
+      "timestamp": 1793757432
+    },
+    {
+      "number": 54177817,
+      "timestamp": 1793757432
+    },
+    {
+      "number": 54177816,
+      "timestamp": 1793757432
+    },
+    {
+      "number": 54177815,
+      "timestamp": 1793757431
+    },
+    {
+      "number": 54177814,
+      "timestamp": 1793757431
+    },
+    {
+      "number": 54177813,
+      "timestamp": 1793757431
+    },
+    {
+      "number": 54177812,
+      "timestamp": 1793757431
+    },
+    {
+      "number": 54177811,
+      "timestamp": 1793757431
+    },
+    {
+      "number": 54177810,
+      "timestamp": 1793757430
+    },
+    {
+      "number": 54177809,
+      "timestamp": 1793757430
+    },
+    {
+      "number": 54177808,
+      "timestamp": 1793757430
+    }
+  ],
+  "settlements": [
+    {
+      "contract": "UpDownRounds",
+      "address": "0xB5087655A30e42b5C2DB89078e0490221E91D33e",
+      "round": 1,
+      "hash": "0x15f6754f0e8e03a39f882344672a22f0cee851cf7610fe9f616dd6fe3bf18dda",
+      "status": 1,
+      "blockNumber": 54175466,
+      "result": "4",
+      "events": [
+        "Refunded"
+      ]
+    },
+    {
+      "contract": "ThresholdPots",
+      "address": "0xe80Cd5E09C4949639bb6D9dBf5E36E8Ac3130ebe",
+      "round": 1,
+      "hash": "0x05649ccdb28d74e90bcc43db5ead112f41558d5ac65fd2e01bf1370a476b365e",
+      "status": 1,
+      "blockNumber": 54175475,
+      "result": "5",
+      "events": [
+        "Refunded"
+      ]
+    }
+  ]
+}

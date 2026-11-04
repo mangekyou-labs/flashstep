@@ -1,0 +1,1 @@
+PASS: 200ms canonical blocks with repeated seconds, 300ms RPC latency and restart past 32 blocks

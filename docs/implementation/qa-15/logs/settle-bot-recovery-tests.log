@@ -1,0 +1,17 @@
+✔ lagging providers cannot reallocate unresolved local nonces (0.3175ms)
+✔ expired retries use fresh timestamps and never broadcast (0.353541ms)
+✔ each simultaneous capture rechecks the chain before sending (0.413459ms)
+✔ ambiguous sends reserve their nonce without logging transport details (0.212ms)
+✔ definite rejection releases the nonce (0.128833ms)
+✔ legacy captures still broadcast one two-second block ahead (0.118292ms)
+✔ scheduler pauses remaining captures after uncertain acceptance (0.475208ms)
+✔ expired lower captures pause allocations while higher nonces remain pending (0.08775ms)
+✔ a rejected retry cannot abandon a nonce with higher queued transactions (0.117666ms)
+ℹ tests 9
+ℹ suites 0
+ℹ pass 9
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 263.332708

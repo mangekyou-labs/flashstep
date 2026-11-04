@@ -1,0 +1,70 @@
+{
+  "chainId": 84532,
+  "fromBlock": 53908146,
+  "contracts": {
+    "chainId": 84532,
+    "marketCapReader": "0x0000000000000000000000000000000000000000",
+    "payer": "0xeD37FD0d6F0f69236E7472B36796e133D20EcC32",
+    "pool": "0x94bfc0574FF48E92cE43d495376C477B1d0EEeC0",
+    "priceReader": "0x8De98D34Fa14867a9e7EbC3b59Ee25992B5B7D94",
+    "stakeToken": "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+    "threshold": "0xe80Cd5E09C4949639bb6D9dBf5E36E8Ac3130ebe",
+    "upDown": "0xB5087655A30e42b5C2DB89078e0490221E91D33e"
+  },
+  "receipts": [
+    {
+      "transactionHash": "0x6e8dfa4737139029b6dc833871313c23126f41eaad6b771d4e146ee25f7be47b",
+      "blockNumber": "0x33692b2",
+      "status": "0x1",
+      "contractAddress": "0x8de98d34fa14867a9e7ebc3b59ee25992b5b7d94"
+    },
+    {
+      "transactionHash": "0xc8d5ea463b9ef4ab0f69fcf5f8d6ecd4080f09f7b55664461d4967ffa69234fb",
+      "blockNumber": "0x33692b8",
+      "status": "0x1",
+      "contractAddress": "0xb5087655a30e42b5c2db89078e0490221e91d33e"
+    },
+    {
+      "transactionHash": "0x7f07d2aae915b534b16c891681c9e47ef12246e5b788da6426cb9341d7c10a37",
+      "blockNumber": "0x33692bf",
+      "status": "0x1",
+      "contractAddress": "0xe80cd5e09c4949639bb6d9dbf5e36e8ac3130ebe"
+    },
+    {
+      "transactionHash": "0x446db8294058da4591a50962af17e62a7bc2c8142910e88067101375495dcbdc",
+      "blockNumber": "0x33694ba",
+      "status": "0x1",
+      "contractAddress": null
+    },
+    {
+      "transactionHash": "0x26439121208dc22e3f0789a9e3cf493f629527695cce8b5c3a0c51d25919a425",
+      "blockNumber": "0x33694c0",
+      "status": "0x1",
+      "contractAddress": null
+    },
+    {
+      "transactionHash": "0xf9c5d6bb9f3fb938e8ff1b15fb6f84851d684316e0b75702cde4ac907906e134",
+      "blockNumber": "0x33694c6",
+      "status": "0x1",
+      "contractAddress": null
+    },
+    {
+      "transactionHash": "0x251a976539a7d7339e749e0285227deca29b8630ea7bfed0bcc55ece117fa194",
+      "blockNumber": "0x33694cb",
+      "status": "0x1",
+      "contractAddress": null
+    },
+    {
+      "transactionHash": "0xd136f0b634f00784238b138fed4dec758889266f60ed0b07f56928d1c65638d3",
+      "blockNumber": "0x33694d0",
+      "status": "0x1",
+      "contractAddress": null
+    },
+    {
+      "transactionHash": "0xdcc790ee16988e69ee6d25eb81b1722a4aee52c07e3437812c64640426b4918a",
+      "blockNumber": "0x33694d6",
+      "status": "0x1",
+      "contractAddress": null
+    }
+  ]
+}

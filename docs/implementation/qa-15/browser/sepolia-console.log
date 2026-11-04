@@ -1,0 +1,20 @@
+[     235ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8545/:0
+[    5510ms] [ERROR] Failed to load resource: the server responded with a status of 429 () @ https://sepolia.base.org/:0
+[    7450ms] [ERROR] Failed to load resource: the server responded with a status of 429 () @ https://sepolia.base.org/:0
+[    7470ms] [ERROR] Failed to load resource: the server responded with a status of 429 () @ https://sepolia.base.org/:0
+[    7470ms] [ERROR] Failed to load resource: the server responded with a status of 429 () @ https://sepolia.base.org/:0
+[    7479ms] [ERROR] Failed to load resource: the server responded with a status of 429 () @ https://sepolia.base.org/:0
+[    7511ms] [ERROR] Failed to load resource: the server responded with a status of 429 () @ https://sepolia.base.org/:0
+[    9590ms] [ERROR] Failed to load resource: the server responded with a status of 429 () @ https://sepolia.base.org/:0
+[    9593ms] [ERROR] Failed to load resource: the server responded with a status of 429 () @ https://sepolia.base.org/:0
+[    9598ms] [ERROR] Failed to load resource: the server responded with a status of 429 () @ https://sepolia.base.org/:0
+[    9601ms] [ERROR] Failed to load resource: the server responded with a status of 429 () @ https://sepolia.base.org/:0
+[    9605ms] [ERROR] Failed to load resource: the server responded with a status of 429 () @ https://sepolia.base.org/:0
+[   12649ms] [ERROR] Failed to load resource: the server responded with a status of 429 () @ https://sepolia.base.org/:0
+[   17573ms] [ERROR] Failed to load resource: the server responded with a status of 429 () @ https://sepolia.base.org/:0
+[   17575ms] [ERROR] Failed to load resource: the server responded with a status of 429 () @ https://sepolia.base.org/:0
+[   18337ms] [ERROR] Failed to load resource: the server responded with a status of 429 () @ https://sepolia.base.org/:0
+[   18344ms] [ERROR] Failed to load resource: the server responded with a status of 429 () @ https://sepolia.base.org/:0
+[   18657ms] [ERROR] Failed to load resource: the server responded with a status of 429 () @ https://sepolia.base.org/:0
+[   18664ms] [ERROR] Failed to load resource: the server responded with a status of 429 () @ https://sepolia.base.org/:0
+[   18674ms] [ERROR] Failed to load resource: the server responded with a status of 429 () @ https://sepolia.base.org/:0

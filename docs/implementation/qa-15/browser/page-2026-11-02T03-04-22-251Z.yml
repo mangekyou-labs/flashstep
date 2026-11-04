@@ -1,0 +1,47 @@
+- generic [active] [ref=f2e1]:
+  - link "Skip to content":
+    - /url: "#geist-skip-nav"
+  - alert [ref=f2e2]
+  - generic [ref=f2e4]:
+    - banner [ref=f2e5]:
+      - link "Vercel logo":
+        - /url: /home
+        - button [ref=f2e6] [cursor=pointer]:
+          - img "Vercel Logo" [ref=f2e7]
+      - navigation [ref=f2e9]:
+        - navigation [ref=f2e10]:
+          - link [ref=f2e11] [cursor=pointer]:
+            - /url: /signup?next=%2Fsso-api%3Furl%3Dhttps%253A%252F%252Forekamarket-mzeccijcw-gadillacers-projects.vercel.app%252Frounds%252F%253Fbrand%253DDEGEN%26nonce%3Ddb5f78e4674ecba7e7764977c2bb87c2c431c21058fa28dbdf6b4d356d0be1b6
+            - paragraph [ref=f2e13]: Sign Up
+    - main [ref=f2e14]:
+      - generic [ref=f2e16]:
+        - heading "Log in to Vercel" [level=1] [ref=f2e19]
+        - generic [ref=f2e20]:
+          - generic [ref=f2e21]:
+            - textbox "Email Address" [ref=f2e24]
+            - button "Continue with Email" [ref=f2e27] [cursor=pointer]
+          - generic [ref=f2e30]:
+            - button "Continue with Google" [ref=f2e31] [cursor=pointer]:
+              - generic [ref=f2e35]:
+                - generic [ref=f2e36]: Continue with
+                - text: Google
+            - button "Continue with GitHub" [ref=f2e37] [cursor=pointer]:
+              - generic [ref=f2e41]:
+                - generic [ref=f2e42]: Continue with
+                - text: GitHub
+            - button "Continue with ChatGPT" [ref=f2e43] [cursor=pointer]:
+              - generic [ref=f2e47]:
+                - generic [ref=f2e48]: Continue with
+                - text: ChatGPT
+            - button "Continue with SAML SSO" [ref=f2e50] [cursor=pointer]
+            - button "Continue with Passkey" [ref=f2e55] [cursor=pointer]
+            - button "Show other options" [ref=f2e60] [cursor=pointer]
+        - paragraph [ref=f2e63]:
+          - text: Don't have an account?
+          - link "Sign Up" [ref=f2e64] [cursor=pointer]:
+            - /url: /signup?next=%2Fsso-api%3Furl%3Dhttps%253A%252F%252Forekamarket-mzeccijcw-gadillacers-projects.vercel.app%252Frounds%252F%253Fbrand%253DDEGEN%26nonce%3Ddb5f78e4674ecba7e7764977c2bb87c2c431c21058fa28dbdf6b4d356d0be1b6
+      - generic [ref=f2e67]:
+        - link "Terms" [ref=f2e68] [cursor=pointer]:
+          - /url: /legal/terms
+        - link "Privacy Policy" [ref=f2e69] [cursor=pointer]:
+          - /url: /legal/privacy-notice

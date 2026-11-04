@@ -1,0 +1,31 @@
+✔ lagging providers cannot reallocate unresolved local nonces (0.463292ms)
+✔ expired retries use fresh timestamps and never broadcast (0.447334ms)
+✔ each simultaneous capture rechecks the chain before sending (0.471458ms)
+✔ ambiguous sends reserve their nonce without logging transport details (0.2535ms)
+✔ definite rejection releases the nonce (0.143042ms)
+✔ legacy captures still broadcast one two-second block ahead (0.116125ms)
+✔ scheduler pauses remaining captures after uncertain acceptance (0.637208ms)
+✔ expired lower captures pause allocations while higher nonces remain pending (0.111833ms)
+✔ a rejected retry cannot abandon a nonce with higher queued transactions (0.505833ms)
+✔ capture group reserves every nonce before one submission request (1.457291ms)
+✔ a rejected lower nonce with an accepted higher nonce pauses the entire group (0.362125ms)
+✔ transport failure conservatively retains all capture nonces (0.235709ms)
+✔ missing member conservatively retains all capture nonces (0.233542ms)
+✔ mismatched hash conservatively retains all capture nonces (0.323083ms)
+✔ late head with a measured round trip leaves insufficient submission margin (0.068166ms)
+✔ individual native retry also rejects insufficient measured margin (0.170416ms)
+✔ last native block before cutoff can target the first block of the correct second (1.243125ms)
+✔ last native block of cutoff second cannot target that second anymore (0.073333ms)
+✔ native phase earlier than the final pre-boundary block cannot send early (0.055542ms)
+✔ CLI rejects duplicate ids before any transaction submission (246.657084ms)
+✔ CLI rejects missing member before any transaction submission (205.200917ms)
+✔ CLI rejects foreign id before any transaction submission (197.660916ms)
+✔ CLI rejects object envelope before any transaction submission (193.788042ms)
+ℹ tests 23
+ℹ suites 0
+ℹ pass 23
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1214.272917

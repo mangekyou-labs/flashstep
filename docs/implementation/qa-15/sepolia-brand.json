@@ -1,0 +1,44 @@
+{
+  "DEGEN": {
+    "name": "Base Sepolia QA",
+    "ticker": "WETH",
+    "logo": "/rounds/base.svg",
+    "accent": "#6d28d9",
+    "up": "#167349",
+    "down": "#b6333b",
+    "address": "0xB5087655A30e42b5C2DB89078e0490221E91D33e",
+    "thresholdAddress": "0xe80Cd5E09C4949639bb6D9dBf5E36E8Ac3130ebe",
+    "chainId": 84532,
+    "quoteTicker": "USDC",
+    "explorerUrl": "https://sepolia.basescan.org",
+    "fromBlock": "53908146"
+  },
+  "BASE": {
+    "name": "Base Sepolia QA",
+    "ticker": "WETH",
+    "logo": "/rounds/base.svg",
+    "accent": "#174bd6",
+    "up": "#116a42",
+    "down": "#ae2935",
+    "address": "0xB5087655A30e42b5C2DB89078e0490221E91D33e",
+    "thresholdAddress": "0xe80Cd5E09C4949639bb6D9dBf5E36E8Ac3130ebe",
+    "chainId": 84532,
+    "quoteTicker": "USDC",
+    "explorerUrl": "https://sepolia.basescan.org",
+    "fromBlock": "53908146"
+  },
+  "WETH": {
+    "name": "Base Sepolia QA",
+    "ticker": "WETH",
+    "logo": "/rounds/base.svg",
+    "accent": "#6d28d9",
+    "up": "#167349",
+    "down": "#b6333b",
+    "address": "0xB5087655A30e42b5C2DB89078e0490221E91D33e",
+    "thresholdAddress": "0xe80Cd5E09C4949639bb6D9dBf5E36E8Ac3130ebe",
+    "chainId": 84532,
+    "quoteTicker": "USDC",
+    "explorerUrl": "https://sepolia.basescan.org",
+    "fromBlock": "53908146"
+  }
+}

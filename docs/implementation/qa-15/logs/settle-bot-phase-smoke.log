@@ -1,0 +1,28 @@
+✔ lagging providers cannot reallocate unresolved local nonces (0.37675ms)
+✔ expired retries use fresh timestamps and never broadcast (0.413959ms)
+✔ each simultaneous capture rechecks the chain before sending (0.452375ms)
+✔ ambiguous sends reserve their nonce without logging transport details (0.220166ms)
+✔ definite rejection releases the nonce (0.134833ms)
+✔ legacy captures still broadcast one two-second block ahead (0.112125ms)
+✔ scheduler pauses remaining captures after uncertain acceptance (0.516083ms)
+✔ expired lower captures pause allocations while higher nonces remain pending (0.112583ms)
+✔ a rejected retry cannot abandon a nonce with higher queued transactions (0.145458ms)
+✔ last native block before cutoff can target the first block of the correct second (1.034375ms)
+✔ last native block of cutoff second cannot target that second anymore (0.064666ms)
+✔ native phase earlier than the final pre-boundary block cannot send early (0.053583ms)
+ℹ tests 12
+ℹ suites 0
+ℹ pass 12
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 322.063958
+PASS: unprivileged CLI captured and settled both real Round contracts on time
+PASS: restart captured older Rounds in its first pass with newer current Rounds, then recovered pending captures
+PASS: settled Rounds skipped without transactions; configurable RPC proxy observed request pacing
+Invalid SETTLE_REQUEST_INTERVAL_MS
+PASS: invalid request-rate configuration fails at startup
+PASS: 200ms canonical blocks with repeated seconds, 60ms RPC latency and restart past 32 blocks
+PASS: 200ms overlap: three simultaneous captures and three settled Rounds per contract with 60ms RPC latency
+PASS: real late-inclusion revert stops the CLI after one capture and reports OutsideBoundary

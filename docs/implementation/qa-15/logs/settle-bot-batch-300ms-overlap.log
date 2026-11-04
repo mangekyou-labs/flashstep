@@ -1,0 +1,1 @@
+PASS: 200ms overlap: three simultaneous captures and three settled Rounds per contract with 300ms RPC latency
